@@ -16,13 +16,58 @@
     #panel input, #panel textarea, #panel select { width: 100%; margin-bottom: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
     #panel button { width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; font-size: 14px; margin-bottom: 5px; }
     #panel button:hover { background: #0056b3; }
-    .point-item { display: flex; justify-content: space-between; align-items: center; padding: 6px; border-radius: 6px; margin-bottom: 4px; background: #f2f2f2; cursor: pointer; font-size: 14px; }
-    .delete-btn { background: #dc3545; color: white; border: none; border-radius: 5px; padding: 3px 7px; font-size: 13px; cursor: pointer; }
+    #panel .delete-btn, #panel .route-del { width: auto !important; padding: 4px 8px; }
+    .point-item { display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; margin-bottom: 4px; background: #f2f2f2; cursor: pointer; font-size: 14px; min-width: 0; }
+    .point-item.active { outline: 2px solid #007bff; }
+    body.dark .point-item.active { outline: 2px solid #4da3ff; }
+    .point-text { flex: 1; min-width: 0; overflow: hidden; }
+    .point-text b, .point-text small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .delete-btn { background: #dc3545; color: white; border: none; border-radius: 5px; padding: 4px 8px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
     .leaflet-control-zoom { right: 15px !important; bottom: 80px !important; }
     #mobileArrows { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 1200; }
     .nav-btn { background: rgba(0,123,255,0.9); border: none; color: white; width: 46px; height: 46px; border-radius: 50%; font-size: 20px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
     .nav-btn:active { background: #0056b3; transform: scale(0.96); }
     #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2000; font-family: system-ui, sans-serif; }
+
+    /* Dark theme */
+    #panel { transition: all 0.3s ease, background 0.4s ease, color 0.4s ease; color: #111; }
+    #panel input, #panel textarea, #panel select { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
+    .point-item { transition: background 0.4s ease, color 0.4s ease; }
+    body.dark #panel { background: rgba(22,22,30,0.97); color: #e0e0e0; box-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+    body.dark #panel input, body.dark #panel textarea, body.dark #panel select { background: #2a2a38; color: #e0e0e0; border-color: #444; }
+    body.dark #panel label { color: #bbb; }
+    body.dark #panel h3 { color: #fff; }
+    body.dark .point-item { background: #2a2a38; color: #e0e0e0; }
+    body.dark .point-item:hover { background: #33334a; }
+    body.dark #toggleArrow { background: #1e90ff; }
+
+    /* Dark scrollbar */
+    body.dark #panel::-webkit-scrollbar { width: 6px; }
+    body.dark #panel::-webkit-scrollbar-track { background: #16161e; border-radius: 10px; }
+    body.dark #panel::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+    body.dark #panel::-webkit-scrollbar-thumb:hover { background: #666; }
+
+    /* Drag-and-drop */
+    .point-item { cursor: grab; }
+    .point-item.dragging { opacity: 0.4; cursor: grabbing; }
+    .point-item.drag-over { outline: 2px dashed #007bff; background: #d0e8ff; }
+    body.dark .point-item.drag-over { background: #1a2a40; outline-color: #4da3ff; }
+    .drag-handle { color: #aaa; font-size: 16px; margin-right: 5px; cursor: grab; user-select: none; flex-shrink: 0; }
+    body.dark .drag-handle { color: #555; }
+    /* Route mode */
+    #routePanel { display:none; }
+    #routePanel.active { display:block; }
+    #mainPanel.route-hidden { display:none; }
+    #routeBtn { background: #6f42c1; }
+    #routeBtn.active { background: #4a148c; }
+    .route-item { display:flex; align-items:center; gap:4px; padding:5px 6px; border-radius:6px; margin-bottom:4px; background:#f2f2f2; font-size:13px; cursor:grab; }
+    .route-item.dragging { opacity:0.4; }
+    .route-item.drag-over { outline:2px dashed #6f42c1; }
+    .route-num { background:#6f42c1; color:#fff; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; flex-shrink:0; }
+    .route-del { background:none; border:none; color:#dc3545; font-size:15px; cursor:pointer; padding:0 2px; flex-shrink:0; margin-left:auto; }
+    .route-add-btn { background:#6f42c1; }
+    body.dark .route-item { background:#2a2a38; color:#e0e0e0; }
+    body.dark .route-item.drag-over { background:#2a1a40; }
   </style>
 </head>
 <body>
@@ -45,7 +90,23 @@
     <label style="font-size:13px;color:#333;">Импортировать из KMZ:</label>
     <input type="file" id="importKmz" accept=".kmz" />
     <input type="text" id="searchPoints" placeholder="Поиск по координатам..." style="margin-top:10px;padding:6px;border-radius:6px;border:1px solid #ccc;font-size:14px;"/>
-    <div id="pointsList"></div>
+    <button id="routeBtn" style="background:#6f42c1;margin-top:6px;">🗺 Настроить маршрут ←→</button>
+    <div id="mainPanel">
+      <div id="pointsList"></div>
+    </div>
+    <div id="routePanel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <b style="font-size:13px;">Порядок маршрута</b>
+        <button id="routeClearBtn" style="background:#dc3545;width:auto;padding:3px 8px;font-size:12px;">Очистить</button>
+      </div>
+      <p style="font-size:12px;color:#888;margin:0 0 6px;">Перетащи точки чтобы изменить порядок. Стрелки ← → будут следовать этому маршруту.</p>
+      <div id="routeList"></div>
+      <div id="routeAddArea">
+        <p style="font-size:12px;color:#888;margin:4px 0 4px;">Добавить точку в маршрут:</p>
+        <input type="text" id="routeSearch" placeholder="Поиск по названию..." style="margin-bottom:4px;"/>
+        <div id="routeAddList"></div>
+      </div>
+    </div>
   </div>
   <button id="toggleArrow">&lt;</button>
   <div id="map"></div>
@@ -91,7 +152,13 @@
     document.getElementById("mapType").addEventListener("change", e => {
       map.removeLayer(osmLayer);
       map.removeLayer(satelliteLayer);
-      (e.target.value === "satellite" ? satelliteLayer : osmLayer).addTo(map);
+      if (e.target.value === "satellite") {
+        satelliteLayer.addTo(map);
+        document.body.classList.add('dark');
+      } else {
+        osmLayer.addTo(map);
+        document.body.classList.remove('dark');
+      }
     });
 
     let points = [];
@@ -151,6 +218,7 @@
           addMarker(normalized, i);
         });
         
+        if (points.length > 0) currentIndex = 0;
         refreshList();
         document.getElementById('loading').style.display = 'none';
       } catch (err) {
@@ -160,6 +228,8 @@
       }
     }
 
+    let dragSrcIndex = null;
+
     function refreshList(filter = '') {
       listDiv.innerHTML = '';
       const lowerFilter = filter.toLowerCase();
@@ -168,7 +238,8 @@
         .map((p, i) => ({ ...p, index: i }))
         .filter(p => {
           const coords = `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
-          return coords.toLowerCase().includes(lowerFilter);
+          const name = (p.name || '').toLowerCase();
+          return coords.includes(lowerFilter) || name.includes(lowerFilter);
         });
 
       points.forEach(p => {
@@ -178,16 +249,39 @@
 
       filteredPoints.forEach(p => {
         const div = document.createElement('div');
-        div.className = 'point-item';
+        div.className = 'point-item' + (p.index === currentIndex ? ' active' : '');
+        div.draggable = true;
+        div.dataset.index = p.index;
+
         const label = p.name ? `<b>${p.name}</b>` : `<b>Точка ${p.index + 1}</b>`;
-        div.innerHTML = `<div>${label}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
+        div.innerHTML = `<span class="drag-handle" title="Перетащи для сортировки">⠿</span><div class="point-text">${label}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
         div.onclick = () => { flyToPoint(p.index); loadPointToForm(p.index); };
+
+        div.addEventListener('dragstart', e => {
+          dragSrcIndex = p.index;
+          setTimeout(() => div.classList.add('dragging'), 0);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', () => div.classList.remove('dragging'));
+        div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+        div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+        div.addEventListener('drop', e => {
+          e.preventDefault();
+          div.classList.remove('drag-over');
+          if (dragSrcIndex === null || dragSrcIndex === p.index) return;
+          const moved = points.splice(dragSrcIndex, 1)[0];
+          points.splice(p.index, 0, moved);
+          dragSrcIndex = null;
+          refreshList(searchInput.value.trim());
+        });
 
         const del = document.createElement('button');
         del.textContent = '🗑';
         del.className = 'delete-btn';
         del.onclick = async e => {
           e.stopPropagation();
+          const pwd = prompt('Введите пароль для удаления:');
+          if (pwd !== '59872461') return alert('Неверный пароль!');
           try {
             const { error } = await sb.from('markers').delete().eq('id', p.id);
             if (error) throw error;
@@ -246,29 +340,19 @@
 
     function flyToPoint(realIndex) {
       if (points.length === 0) return;
+      // clamp with wrap
+      if (realIndex < 0) realIndex = points.length - 1;
+      if (realIndex >= points.length) realIndex = 0;
 
-      const filterText = searchInput.value.trim().toLowerCase();
-      const filtered = points
-        .map((p, i) => ({ ...p, i }))
-        .filter(p => {
-          const coords = `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
-          return coords.toLowerCase().includes(filterText);
-        });
-
-      if (filtered.length === 0) return;
-
-      let idx = filtered.findIndex(p => p.i === realIndex);
-      if (idx === -1) idx = 0;
-
-      const p = filtered[idx];
-      map.flyTo([p.lat, p.lng], 17, { animate: true, duration: 3 });
-      setTimeout(() => p.marker.openPopup(), 1500);
-
-      currentIndex = p.i;
+      const p = points[realIndex];
+      if (!p) return;
+      currentIndex = realIndex;
+      map.flyTo([p.lat, p.lng], 14, { animate: true, duration: 1.5 });
+      setTimeout(() => p.marker && p.marker.openPopup(), 900);
+      refreshList(searchInput.value.trim());
     }
 
-    document.getElementById('prevBtn').onclick = () => flyToPoint(currentIndex - 1);
-    document.getElementById('nextBtn').onclick = () => flyToPoint(currentIndex + 1);
+    // prevBtn/nextBtn handled in route mode section
 
     document.getElementById('migrateFromLocal').onclick = async () => {
       try {
@@ -306,6 +390,8 @@
     };
 
     document.getElementById('deleteAll').onclick = async () => {
+      const pwd = prompt('Введите пароль для удаления всех точек:');
+      if (pwd !== '59872461') return alert('Неверный пароль!');
       if (!confirm("Удалить все точки?")) return;
       try {
         const { error } = await sb.from('markers').delete().neq('id', 0);
@@ -396,6 +482,120 @@
     });
 
     searchInput.oninput = e => refreshList(e.target.value.trim());
+
+
+    // ── ROUTE MODE ────────────────────────────────────────────────────────────
+    let routeOrder = []; // array of point indices defining navigation order
+    let routePos = 0;    // current position in routeOrder
+    let routeMode = false;
+
+    const routeBtn = document.getElementById('routeBtn');
+    const routePanel = document.getElementById('routePanel');
+    const mainPanel = document.getElementById('mainPanel');
+
+    routeBtn.onclick = () => {
+      routeMode = !routeMode;
+      routeBtn.classList.toggle('active', routeMode);
+      routeBtn.textContent = routeMode ? '✕ Закрыть маршрут' : '🗺 Настроить маршрут ←→';
+      routePanel.classList.toggle('active', routeMode);
+      mainPanel.classList.toggle('route-hidden', routeMode);
+      if (routeMode) renderRoutePanel();
+    };
+
+    document.getElementById('routeClearBtn').onclick = () => {
+      routeOrder = []; routePos = 0; renderRoutePanel();
+    };
+
+    document.getElementById('routeSearch').oninput = e => renderRouteAddList(e.target.value.trim());
+
+    function renderRoutePanel() {
+      renderRouteList();
+      renderRouteAddList(document.getElementById('routeSearch').value.trim());
+    }
+
+    let routeDragSrc = null;
+
+    function renderRouteList() {
+      const el = document.getElementById('routeList');
+      el.innerHTML = '';
+      if (routeOrder.length === 0) {
+        el.innerHTML = '<p style="font-size:12px;color:#888;text-align:center;">Маршрут пуст</p>';
+        return;
+      }
+      routeOrder.forEach((pi, ri) => {
+        const p = points[pi];
+        if (!p) return;
+        const div = document.createElement('div');
+        div.className = 'route-item';
+        div.draggable = true;
+        div.innerHTML = `<span class="route-num">${ri+1}</span>
+          <div class="point-text" style="flex:1;min-width:0;margin:0 4px;">${p.name ? `<b>${p.name}</b>` : `<b>Точка ${pi+1}</b>`}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>
+          <button class="route-del" title="Убрать из маршрута">✕</button>`;
+
+        div.querySelector('.route-del').onclick = () => {
+          routeOrder.splice(ri, 1);
+          if (routePos >= routeOrder.length) routePos = Math.max(0, routeOrder.length - 1);
+          renderRouteList();
+        };
+
+        div.addEventListener('dragstart', e => { routeDragSrc = ri; setTimeout(() => div.classList.add('dragging'), 0); });
+        div.addEventListener('dragend', () => div.classList.remove('dragging'));
+        div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+        div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+        div.addEventListener('drop', e => {
+          e.preventDefault(); div.classList.remove('drag-over');
+          if (routeDragSrc === null || routeDragSrc === ri) return;
+          const moved = routeOrder.splice(routeDragSrc, 1)[0];
+          routeOrder.splice(ri, 0, moved);
+          routeDragSrc = null;
+          renderRouteList();
+        });
+
+        el.appendChild(div);
+      });
+    }
+
+    function renderRouteAddList(filter = '') {
+      const el = document.getElementById('routeAddList');
+      el.innerHTML = '';
+      const lf = filter.toLowerCase();
+      points.forEach((p, i) => {
+        if (routeOrder.includes(i)) return; // already in route
+        const name = p.name || `Точка ${i+1}`;
+        if (lf && !name.toLowerCase().includes(lf) && !`${p.lat.toFixed(4)},${p.lng.toFixed(4)}`.includes(lf)) return;
+        const div = document.createElement('div');
+        div.className = 'route-item';
+        div.style.cursor = 'pointer';
+        div.innerHTML = `<span style="font-size:16px;flex-shrink:0">＋</span>
+          <div class="point-text" style="flex:1;min-width:0;margin-left:4px;">${p.name ? `<b>${p.name}</b>` : `<b>Точка ${i+1}</b>`}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
+        div.onclick = () => { routeOrder.push(i); renderRoutePanel(); };
+        el.appendChild(div);
+      });
+      if (el.innerHTML === '') el.innerHTML = '<p style="font-size:12px;color:#888;text-align:center;">Все точки добавлены</p>';
+    }
+
+    // Override prev/next to use routeOrder when active
+    document.getElementById('prevBtn').onclick = () => {
+      if (routeMode && routeOrder.length > 0) {
+        routePos = routePos <= 0 ? routeOrder.length - 1 : routePos - 1;
+        flyToPoint(routeOrder[routePos]);
+      } else {
+        if (points.length === 0) return;
+        const newIdx = currentIndex <= 0 ? points.length - 1 : currentIndex - 1;
+        flyToPoint(newIdx);
+      }
+    };
+    document.getElementById('nextBtn').onclick = () => {
+      if (routeMode && routeOrder.length > 0) {
+        routePos = routePos >= routeOrder.length - 1 ? 0 : routePos + 1;
+        flyToPoint(routeOrder[routePos]);
+      } else {
+        if (points.length === 0) return;
+        const newIdx = currentIndex >= points.length - 1 ? 0 : currentIndex + 1;
+        flyToPoint(newIdx);
+      }
+    };
+    // ── END ROUTE MODE ────────────────────────────────────────────────────────
 
     // Load points on startup
     loadPoints();
