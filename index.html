@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Редактор карты ЗКО</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    #panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.98); padding: 14px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); width: 270px; font-family: system-ui, sans-serif; transition: all 0.3s ease; max-height: 85vh; overflow-y: auto; }
+    #panel.hidden { opacity: 0; transform: translateX(-320px); pointer-events: none; }
+    #toggleArrow { position: absolute; top: 50%; left: 280px; transform: translateY(-50%); background: #007bff; color: white; border: none; border-radius: 0 6px 6px 0; width: 26px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1100; box-shadow: 1px 2px 5px rgba(0,0,0,0.3); font-size: 18px; transition: left 0.3s ease, opacity 0.3s ease; }
+    #toggleArrow.hidden { opacity: 0; pointer-events: none; }
+    #panel input, #panel textarea, #panel select { width: 100%; margin-bottom: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+    #panel button { width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; font-size: 14px; margin-bottom: 5px; }
+    #panel button:hover { background: #0056b3; }
+    .point-item { display: flex; justify-content: space-between; align-items: center; padding: 6px; border-radius: 6px; margin-bottom: 4px; background: #f2f2f2; cursor: pointer; font-size: 14px; }
+    .delete-btn { background: #dc3545; color: white; border: none; border-radius: 5px; padding: 3px 7px; font-size: 13px; cursor: pointer; }
+    .leaflet-control-zoom { right: 15px !important; bottom: 80px !important; }
+    #mobileArrows { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 1200; }
+    .nav-btn { background: rgba(0,123,255,0.9); border: none; color: white; width: 46px; height: 46px; border-radius: 50%; font-size: 20px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+    .nav-btn:active { background: #0056b3; transform: scale(0.96); }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2000; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="loading">Загрузка точек...</div>
+  <div id="panel">
+    <h3 id="formTitle">Добавить точку</h3>
+    <label>Тип карты:</label>
+    <select id="mapType"><option value="osm">Обычная</option><option value="satellite">Спутниковая</option></select>
+    <input type="text" id="pointLat" placeholder="Широта (lat)" />
+    <input type="text" id="pointLng" placeholder="Долгота (lng)" />
+    <input type="text" id="pointName" placeholder="Название (необязательно)" />
+    <textarea id="pointDesc" placeholder="Описание (необязательно)" rows="2" style="resize:vertical;"></textarea>
+    <button id="selectModeBtn">Выбрать на карте</button>
+    <button id="addPoint">Добавить точку</button>
+    <button id="migrateFromLocal" style="background:#28a745;">Перенести из localStorage</button>
+    <button id="deleteAll" style="background:#dc3545;">Удалить все точки</button>
+    <button id="saveJSON" style="background:#17a2b8;">Экспорт в JSON</button>
+    <label style="font-size:13px;color:#333;">Импортировать из JSON:</label>
+    <input type="file" id="importJSON" accept=".json" />
+    <label style="font-size:13px;color:#333;">Импортировать из KMZ:</label>
+    <input type="file" id="importKmz" accept=".kmz" />
+    <input type="text" id="searchPoints" placeholder="Поиск по координатам..." style="margin-top:10px;padding:6px;border-radius:6px;border:1px solid #ccc;font-size:14px;"/>
+    <div id="pointsList"></div>
+  </div>
+  <button id="toggleArrow">&lt;</button>
+  <div id="map"></div>
+  <div id="mobileArrows">
+    <button class="nav-btn" id="prevBtn">←</button>
+    <button class="nav-btn" id="nextBtn">→</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Supabase setup
+    const { createClient } = supabase;
+    const supabaseUrl = 'https://diniabtxchgtbcfldwib.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c';
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+    const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}');
+    const map = L.map('map', { zoomControl: false, attributionControl: false, layers: [osmLayer] }).setView([50.9, 52.0], 7);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const panel = document.getElementById('panel');
+    const arrow = document.getElementById('toggleArrow');
+
+    function togglePanel() {
+      const hidden = panel.classList.toggle('hidden');
+      arrow.textContent = hidden ? '>' : '<';
+      arrow.style.left = hidden ? '0px' : '280px';
+      arrow.style.opacity = hidden ? '0' : '1';
+    }
+
+    arrow.addEventListener('click', togglePanel);
+    arrow.addEventListener('touchstart', e => { e.preventDefault(); togglePanel(); });
+
+    document.addEventListener('mousemove', e => {
+      if (e.clientX < 10 && panel.classList.contains('hidden')) {
+        arrow.style.opacity = '1';
+      } else if (panel.classList.contains('hidden')) {
+        arrow.style.opacity = '0';
+      }
+    });
+
+    document.getElementById("mapType").addEventListener("change", e => {
+      map.removeLayer(osmLayer);
+      map.removeLayer(satelliteLayer);
+      (e.target.value === "satellite" ? satelliteLayer : osmLayer).addTo(map);
+    });
+
+    let points = [];
+    let selectMode = false, currentIndex = -1, editIndex = -1;
+    const listDiv = document.getElementById('pointsList');
+    const searchInput = document.getElementById('searchPoints');
+    const addBtn = document.getElementById('addPoint');
+    const formTitle = document.getElementById('formTitle');
+
+    function normalizePoint(p) {
+      return { id: p.id, lat: Number(p.lat), lng: Number(p.lng), name: p.name || '', desc: p.desc || '' };
+    }
+
+    function addMarker(p, i) {
+      const marker = L.marker([p.lat, p.lng]).addTo(map);
+      const title = p.name ? `<b>${p.name}</b>` : `<b>Точка ${i + 1}</b>`;
+      const descLine = p.desc ? `<br><i>${p.desc}</i>` : '';
+      const popup = `${title}${descLine}`;
+      marker.bindPopup(popup);
+      marker.on("click", () => { flyToPoint(i); loadPointToForm(i); });
+      p.marker = marker;
+    }
+
+    function loadPointToForm(i) {
+      const p = points[i];
+      document.getElementById('pointLat').value = p.lat;
+      document.getElementById('pointLng').value = p.lng;
+      document.getElementById('pointName').value = p.name || '';
+      document.getElementById('pointDesc').value = p.desc || '';
+      editIndex = i;
+      addBtn.textContent = "Сохранить изменения";
+      formTitle.textContent = "Редактировать точку";
+    }
+
+    function clearForm() {
+      document.getElementById('pointLat').value = "";
+      document.getElementById('pointLng').value = "";
+      document.getElementById('pointName').value = "";
+      document.getElementById('pointDesc').value = "";
+      editIndex = -1;
+      addBtn.textContent = "Добавить точку";
+      formTitle.textContent = "Добавить точку";
+    }
+
+    // Load points from Supabase
+    async function loadPoints() {
+      try {
+        const { data, error } = await sb.from('markers').select('*');
+        if (error) throw error;
+        
+        points.forEach(p => p.marker && map.removeLayer(p.marker));
+        points = [];
+        
+        data.forEach((p, i) => {
+          const normalized = normalizePoint(p);
+          points.push(normalized);
+          addMarker(normalized, i);
+        });
+        
+        refreshList();
+        document.getElementById('loading').style.display = 'none';
+      } catch (err) {
+        console.error('Error loading points:', err);
+        alert('Ошибка загрузки точек из базы данных');
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    function refreshList(filter = '') {
+      listDiv.innerHTML = '';
+      const lowerFilter = filter.toLowerCase();
+
+      const filteredPoints = points
+        .map((p, i) => ({ ...p, index: i }))
+        .filter(p => {
+          const coords = `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
+          return coords.toLowerCase().includes(lowerFilter);
+        });
+
+      points.forEach(p => {
+        const visible = filteredPoints.some(fp => fp.lat === p.lat && fp.lng === p.lng);
+        if (p.marker) p.marker.setOpacity(visible ? 1 : 0);
+      });
+
+      filteredPoints.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'point-item';
+        const label = p.name ? `<b>${p.name}</b>` : `<b>Точка ${p.index + 1}</b>`;
+        div.innerHTML = `<div>${label}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
+        div.onclick = () => { flyToPoint(p.index); loadPointToForm(p.index); };
+
+        const del = document.createElement('button');
+        del.textContent = '🗑';
+        del.className = 'delete-btn';
+        del.onclick = async e => {
+          e.stopPropagation();
+          try {
+            const { error } = await sb.from('markers').delete().eq('id', p.id);
+            if (error) throw error;
+            map.removeLayer(p.marker);
+            points.splice(p.index, 1);
+            refreshList(searchInput.value.trim());
+          } catch (err) {
+            console.error('Error deleting point:', err);
+            alert('Ошибка удаления точки');
+          }
+        };
+
+        div.appendChild(del);
+        listDiv.appendChild(div);
+      });
+    }
+
+    async function addOrEditPoint(lat, lng, name = '', desc = '') {
+      try {
+        if (editIndex >= 0) {
+          const existing = points[editIndex];
+          const { error } = await sb.from('markers').update({ lat, lng, name, desc }).eq('id', existing.id);
+          if (error) {
+            console.error('Supabase update error:', error);
+            throw error;
+          }
+          
+          map.removeLayer(existing.marker);
+          existing.lat = lat;
+          existing.lng = lng;
+          existing.name = name;
+          existing.desc = desc;
+          addMarker(existing, editIndex);
+          refreshList(searchInput.value.trim());
+          clearForm();
+        } else {
+          const { data, error } = await sb.from('markers').insert([{ lat, lng, name, desc }]).select();
+          if (error) {
+            console.error('Supabase insert error:', error);
+            alert(`Ошибка Supabase: ${error.message}\nКод: ${error.code}\nДетали: ${error.details}`);
+            throw error;
+          }
+          
+          const newPoint = normalizePoint(data[0]);
+          points.push(newPoint);
+          addMarker(newPoint, points.length - 1);
+          refreshList(searchInput.value.trim());
+        }
+      } catch (err) {
+        console.error('Full error object:', err);
+        if (!err.message?.includes('Supabase:')) {
+          alert(`Ошибка сохранения точки: ${err.message || 'Неизвестная ошибка'}`);
+        }
+      }
+    }
+
+    function flyToPoint(realIndex) {
+      if (points.length === 0) return;
+
+      const filterText = searchInput.value.trim().toLowerCase();
+      const filtered = points
+        .map((p, i) => ({ ...p, i }))
+        .filter(p => {
+          const coords = `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
+          return coords.toLowerCase().includes(filterText);
+        });
+
+      if (filtered.length === 0) return;
+
+      let idx = filtered.findIndex(p => p.i === realIndex);
+      if (idx === -1) idx = 0;
+
+      const p = filtered[idx];
+      map.flyTo([p.lat, p.lng], 17, { animate: true, duration: 3 });
+      setTimeout(() => p.marker.openPopup(), 1500);
+
+      currentIndex = p.i;
+    }
+
+    document.getElementById('prevBtn').onclick = () => flyToPoint(currentIndex - 1);
+    document.getElementById('nextBtn').onclick = () => flyToPoint(currentIndex + 1);
+
+    document.getElementById('migrateFromLocal').onclick = async () => {
+      try {
+        const localData = localStorage.getItem('savedPoints');
+        if (!localData) return alert('В localStorage нет сохранённых точек!');
+        
+        const oldPoints = JSON.parse(localData);
+        if (!Array.isArray(oldPoints) || oldPoints.length === 0) {
+          return alert('В localStorage нет точек для переноса!');
+        }
+        
+        let count = 0;
+        for (let p of oldPoints) {
+          if (!isNaN(p.lat) && !isNaN(p.lng)) {
+            const { error } = await sb.from('markers').insert([{ lat: Number(p.lat), lng: Number(p.lng) }]);
+            if (!error) count++;
+          }
+        }
+        
+        alert(`Перенесено ${count} точек в Supabase!`);
+        await loadPoints();
+      } catch (err) {
+        console.error('Migration error:', err);
+        alert('Ошибка при переносе точек');
+      }
+    };
+
+    addBtn.onclick = () => {
+      const lat = parseFloat(document.getElementById('pointLat').value);
+      const lng = parseFloat(document.getElementById('pointLng').value);
+      const name = document.getElementById('pointName').value.trim();
+      const desc = document.getElementById('pointDesc').value.trim();
+      if (isNaN(lat) || isNaN(lng)) return alert("Введите координаты!");
+      addOrEditPoint(lat, lng, name, desc);
+    };
+
+    document.getElementById('deleteAll').onclick = async () => {
+      if (!confirm("Удалить все точки?")) return;
+      try {
+        const { error } = await sb.from('markers').delete().neq('id', 0);
+        if (error) throw error;
+        points.forEach(p => p.marker && map.removeLayer(p.marker));
+        points = [];
+        refreshList();
+      } catch (err) {
+        console.error('Error deleting all points:', err);
+        alert('Ошибка удаления точек');
+      }
+    };
+
+    document.getElementById('saveJSON').onclick = () => {
+      const data = JSON.stringify(points.map(p => ({ name: p.name, desc: p.desc, lat: p.lat, lng: p.lng })), null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'карта_ZKO.json'; a.click(); URL.revokeObjectURL(url);
+    };
+
+    document.getElementById('importJSON').onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) return alert("Неверный формат JSON!");
+        
+        let count = 0;
+        for (let p of data) {
+          if (!isNaN(p.lat) && !isNaN(p.lng)) {
+            await addOrEditPoint(p.lat, p.lng, p.name || '', p.desc || '');
+            count++;
+            // Небольшая задержка чтобы не перегрузить Supabase
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+        alert(`Импорт завершён! Добавлено точек: ${count}`);
+      } catch (err) {
+        console.error('Import error:', err);
+        alert("Ошибка при чтении JSON!");
+      }
+    };
+
+    document.getElementById('importKmz').onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+        if (!kmlFile) return alert("В KMZ нет KML-файла!");
+        const kmlText = await zip.files[kmlFile].async('text');
+        const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
+        const placemarks = xml.getElementsByTagName('Placemark');
+        
+        let count = 0;
+        for (let p of placemarks) {
+          const coords = p.getElementsByTagName('coordinates')[0]?.textContent?.trim();
+          if (!coords) continue;
+          const [lng, lat] = coords.split(',').map(Number);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          await addOrEditPoint(lat, lng);
+          count++;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        alert(`Импорт KMZ завершён! Добавлено точек: ${count}`);
+      } catch (err) {
+        console.error('KMZ import error:', err);
+        alert("Ошибка при чтении KMZ!");
+      }
+    };
+
+    document.getElementById('selectModeBtn').onclick = () => {
+      selectMode = !selectMode;
+      document.getElementById('selectModeBtn').textContent = selectMode ? 'Отменить выбор' : 'Выбрать на карте';
+      map.getContainer().style.cursor = selectMode ? 'crosshair' : '';
+    };
+
+    map.on('click', e => {
+      if (selectMode) {
+        document.getElementById('pointLat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('pointLng').value = e.latlng.lng.toFixed(6);
+        selectMode = false;
+        document.getElementById('selectModeBtn').textContent = 'Выбрать на карте';
+        map.getContainer().style.cursor = '';
+      }
+    });
+
+    searchInput.oninput = e => refreshList(e.target.value.trim());
+
+    // Load points on startup
+    loadPoints();
+  </script>
+</body>
+</html>
