@@ -68,11 +68,42 @@
     .route-add-btn { background:#6f42c1; }
     body.dark .route-item { background:#2a2a38; color:#e0e0e0; }
     body.dark .route-item.drag-over { background:#2a1a40; }
+
+    /* Online counter */
+    #onlineBadge { display:flex; align-items:center; gap:5px; font-size:12px; color:#555; margin-bottom:8px; }
+    #onlineDot { width:8px; height:8px; border-radius:50%; background:#28a745; animation:blink 2s infinite; flex-shrink:0; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+    body.dark #onlineBadge { color:#aaa; }
+
+    /* Wiki button */
+    .wiki-btn { background:#f8a100 !important; color:#fff; border:none; border-radius:4px; padding:3px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
+    .wiki-btn:disabled { opacity:.5; cursor:default; }
+
+    /* Route quick button */
+    .route-q-btn { background:#6f42c1 !important; color:#fff; border:none; border-radius:5px; padding:4px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
+
+    /* Admin panel */
+    #adminPanel { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; width:90%; max-width:800px; max-height:80vh; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:3000; overflow:hidden; }
+    #adminPanel.active { display:flex; flex-direction:column; }
+    #adminHeader { display:flex; justify-content:space-between; align-items:center; padding:15px 20px; background:#007bff; color:white; }
+    #adminClose { background:none; border:none; color:white; font-size:24px; cursor:pointer; padding:0; width:30px; }
+    #adminContent { flex:1; overflow-y:auto; padding:20px; }
+    .visitor-item { padding:12px; border-bottom:1px solid #eee; font-size:14px; }
+    .visitor-item:hover { background:#f5f5f5; }
+    .visitor-ip { font-weight:bold; color:#007bff; }
+    .visitor-meta { color:#666; font-size:12px; margin-top:4px; }
+    #adminBadge { position:fixed; bottom:80px; left:20px; background:#dc3545; color:white; padding:8px 12px; border-radius:20px; font-size:12px; cursor:pointer; z-index:1500; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+    body.dark #adminPanel { background:#1a1a24; color:#e0e0e0; }
+    body.dark #adminHeader { background:#1e90ff; }
+    body.dark .visitor-item { border-bottom-color:#333; }
+    body.dark .visitor-item:hover { background:#2a2a38; }
+    body.dark .visitor-meta { color:#aaa; }
   </style>
 </head>
 <body>
   <div id="loading">Загрузка точек...</div>
   <div id="panel">
+    <div id="onlineBadge"><span id="onlineDot"></span><span id="onlineCount">...</span> онлайн сейчас</div>
     <h3 id="formTitle">Добавить точку</h3>
     <label>Тип карты:</label>
     <select id="mapType"><option value="osm">Обычная</option><option value="satellite">Спутниковая</option></select>
@@ -83,12 +114,13 @@
     <button id="selectModeBtn">Выбрать на карте</button>
     <button id="addPoint">Добавить точку</button>
     <button id="migrateFromLocal" style="background:#28a745;">Перенести из localStorage</button>
+    <button id="bulkWiki" style="background:#f8a100;">📖 Добавить описания всем (Википедия)</button>
     <button id="deleteAll" style="background:#dc3545;">Удалить все точки</button>
     <button id="saveJSON" style="background:#17a2b8;">Экспорт в JSON</button>
     <label style="font-size:13px;color:#333;">Импортировать из JSON:</label>
     <input type="file" id="importJSON" accept=".json" />
-    <label style="font-size:13px;color:#333;">Импортировать из KMZ:</label>
-    <input type="file" id="importKmz" accept=".kmz" />
+    <label style="font-size:13px;color:#333;">Импортировать из KML/KMZ:</label>
+    <input type="file" id="importKml" accept=".kml,.kmz" />
     <input type="text" id="searchPoints" placeholder="Поиск по координатам..." style="margin-top:10px;padding:6px;border-radius:6px;border:1px solid #ccc;font-size:14px;"/>
     <button id="routeBtn" style="background:#6f42c1;margin-top:6px;">🗺 Настроить маршрут ←→</button>
     <div id="mainPanel">
@@ -122,6 +154,85 @@
     const supabaseUrl = 'https://diniabtxchgtbcfldwib.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c';
     const sb = createClient(supabaseUrl, supabaseKey);
+
+    // Track visitor
+    let sessionId = null;
+    
+    async function trackVisitor() {
+      try {
+        const ua = navigator.userAgent;
+        let device = 'Desktop';
+        let browser = 'Unknown';
+        let os = 'Unknown';
+
+        // Detect device
+        if (/mobile/i.test(ua)) device = 'Mobile';
+        else if (/tablet|ipad/i.test(ua)) device = 'Tablet';
+
+        // Detect browser
+        if (ua.indexOf('Firefox') > -1) browser = 'Firefox';
+        else if (ua.indexOf('SamsungBrowser') > -1) browser = 'Samsung Browser';
+        else if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) browser = 'Opera';
+        else if (ua.indexOf('Trident') > -1) browser = 'IE';
+        else if (ua.indexOf('Edge') > -1) browser = 'Edge';
+        else if (ua.indexOf('Chrome') > -1) browser = 'Chrome';
+        else if (ua.indexOf('Safari') > -1) browser = 'Safari';
+
+        // Detect OS
+        if (ua.indexOf('Windows') > -1) os = 'Windows';
+        else if (ua.indexOf('Mac') > -1) os = 'MacOS';
+        else if (ua.indexOf('Linux') > -1) os = 'Linux';
+        else if (ua.indexOf('Android') > -1) os = 'Android';
+        else if (ua.indexOf('iOS') > -1 || ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) os = 'iOS';
+
+        // Get IP (using ipify API)
+        let ip = 'Unknown';
+        try {
+          const ipRes = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipRes.json();
+          ip = ipData.ip;
+        } catch {}
+
+        // Save to Supabase and get session ID
+        const { data, error } = await sb.from('visitor_logs').insert([{
+          ip,
+          user_agent: ua,
+          device,
+          browser,
+          os,
+          last_seen: new Date().toISOString()
+        }]).select();
+        
+        if (data && data[0]) {
+          sessionId = data[0].id;
+          // Update heartbeat every 30 seconds
+          setInterval(updateHeartbeat, 30000);
+        }
+      } catch (err) {
+        console.error('Tracking error:', err);
+      }
+    }
+
+    async function updateHeartbeat() {
+      if (!sessionId) return;
+      try {
+        await sb.from('visitor_logs').update({ 
+          last_seen: new Date().toISOString() 
+        }).eq('id', sessionId);
+      } catch (err) {
+        console.error('Heartbeat error:', err);
+      }
+    }
+
+    // Admin panel functions
+    // (Disabled in public version)
+
+    // Auto-refresh admin panel every 10 seconds if open
+    // (Disabled in public version)
+
+    // Track on page load
+    trackVisitor();
+
 
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
     const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}');
@@ -294,6 +405,195 @@
           }
         };
 
+        // 🗺 Quick add to route
+        const rqBtn = document.createElement('button');
+        rqBtn.textContent = '🗺';
+        rqBtn.className = 'route-q-btn';
+        rqBtn.title = 'Добавить в маршрут';
+        rqBtn.onclick = e => {
+          e.stopPropagation();
+          if (!routeOrder.includes(p.index)) routeOrder.push(p.index);
+          if (routeMode) renderRoutePanel();
+        };
+
+        // 📖 Wiki button
+        const wikiBtn = document.createElement('button');
+        wikiBtn.textContent = '📖';
+        wikiBtn.className = 'wiki-btn';
+        wikiBtn.title = 'Описание из Википедии';
+        wikiBtn.onclick = async e => {
+          e.stopPropagation();
+          if (!p.name) return alert('У точки нет названия для поиска в Вики');
+          wikiBtn.disabled = true; wikiBtn.textContent = '🔍';
+          try {
+            // Step 1: Search Wikipedia — добавляем уточнения что это место
+            const searches = [
+              p.name + ' село Казахстан',
+              p.name + ' город Казахстан',
+              p.name + ' Казахстан',
+              p.name,
+            ];
+
+            let fullText = '';
+            let foundTitle = '';
+
+            for (const query of searches) {
+              const searchRes = await fetch(
+                `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
+              );
+              const searchJson = await searchRes.json();
+              const results = searchJson?.query?.search || [];
+
+              for (const r of results) {
+                // Пропускаем статьи которые явно про людей
+                const titleLower = r.title.toLowerCase();
+                const snippetLower = (r.snippet || '').toLowerCase();
+                const isPerson =
+                  snippetLower.includes('родился') ||
+                  snippetLower.includes('советский') && snippetLower.includes('актёр') ||
+                  snippetLower.includes('биография') ||
+                  snippetLower.includes('казахский политик') ||
+                  snippetLower.includes('депутат') ||
+                  /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
+                if (isPerson) continue;
+
+                // Получаем БОЛЬШЕ текста страницы (не только intro, а первую секцию целиком)
+                const pageRes = await fetch(
+                  `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
+                );
+                if (!pageRes.ok) continue;
+                const pageJson = await pageRes.json();
+                const pages = pageJson?.query?.pages || {};
+                const page = Object.values(pages)[0];
+                const text = (page?.extract || '').trim();
+
+                // Проверяем что текст про место, а не человека
+                const textLower = text.toLowerCase();
+                const isPlaceLike =
+                  textLower.includes('населённый пункт') ||
+                  textLower.includes('село') ||
+                  textLower.includes('город') ||
+                  textLower.includes('аул') ||
+                  textLower.includes('район') ||
+                  textLower.includes('область') ||
+                  textLower.includes('река') ||
+                  textLower.includes('озеро') ||
+                  textLower.includes('расположен') ||
+                  textLower.includes('находится') ||
+                  textLower.includes('население');
+                const isPersonText =
+                  textLower.includes('родился') ||
+                  textLower.includes('родилась') ||
+                  (textLower.includes('советский') && textLower.includes('актёр'));
+
+                if (text.length > 80 && isPlaceLike && !isPersonText) {
+                  fullText = text;
+                  foundTitle = r.title;
+                  break;
+                }
+              }
+              if (fullText) break;
+            }
+
+            if (!fullText) throw new Error('Статья о месте не найдена');
+
+            // Step 2: Умное сжатие - убираем повторы и берём РАЗНУЮ инфу
+            wikiBtn.textContent = '✍️';
+            
+            // Чистим текст от технических данных
+            let cleaned = fullText.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
+            cleaned = cleaned
+              .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*КАТО[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*почтовый индекс[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*телефонный код[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*[\d]{6,}[^.]*\.?/gi, '')
+              .replace(/\([^)]*население[^)]*\)/gi, '')
+              .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
+              .replace(/  +/g, ' ').trim();
+            
+            // Разбиваем на предложения
+            const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
+            
+            // УБИРАЕМ ДУБЛИКАТЫ и короткие предложения
+            const uniqueSentences = [];
+            const seen = new Set();
+            for (const s of sentences) {
+              const trimmed = s.trim();
+              const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
+              // Игнорируем дубликаты и слишком короткие (< 30 символов)
+              if (!seen.has(normalized) && trimmed.length >= 30) {
+                seen.add(normalized);
+                uniqueSentences.push(trimmed);
+              }
+            }
+            
+            // УМНОЕ СЖАТИЕ: берём 2-4 разнообразных предложения
+            // Приоритет: первое (определение) + предложения с разной инфой
+            let desc = '';
+            let sentCount = 0;
+            const maxLength = 400;
+            
+            for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
+              const s = uniqueSentences[i];
+              
+              // Проверяем не превысим ли лимит
+              if ((desc + s).length > maxLength) {
+                // Если это первое предложение и оно слишком длинное - обрезаем
+                if (sentCount === 0 && s.length > 300) {
+                  desc = s.slice(0, 297) + '...';
+                  break;
+                }
+                // Иначе прекращаем добавлять
+                break;
+              }
+              
+              desc += s + ' ';
+              sentCount++;
+              
+              // Минимум 2 предложения, но если уже > 200 символов и есть 2+ предложения - можно остановиться
+              if (sentCount >= 2 && desc.length >= 200 && desc.length <= 350) {
+                // Проверяем, есть ли ещё место для короткого предложения
+                const nextSent = uniqueSentences[i + 1];
+                if (nextSent && (desc + nextSent).length <= maxLength) {
+                  continue; // добавим ещё одно
+                } else {
+                  break; // хватит
+                }
+              }
+            }
+            
+            desc = desc.trim();
+            
+            // На всякий случай обрезаем если вышло больше 400
+            if (desc.length > 400) {
+              desc = desc.slice(0, 397) + '...';
+            }
+            
+            if (!desc) desc = cleaned.slice(0, 300);
+
+            // Сразу сохраняем в Supabase — не ждём нажатия кнопки
+            wikiBtn.textContent = '💾';
+            const pt = points[p.index];
+            const { error } = await sb.from('markers').update({ desc: desc }).eq('id', pt.id);
+            if (error) throw new Error('Ошибка сохранения: ' + error.message);
+            // Обновляем в памяти и маркере
+            pt.desc = desc;
+            map.removeLayer(pt.marker);
+            addMarker(pt, p.index);
+            // Показываем в форме
+            loadPointToForm(p.index);
+            document.getElementById('pointDesc').value = desc;
+            panel.scrollTop = 0;
+
+          } catch(err) {
+            alert('Ошибка Вики: ' + err.message);
+          }
+          wikiBtn.disabled = false; wikiBtn.textContent = '📖';
+        };
+
+        div.appendChild(rqBtn);
+        div.appendChild(wikiBtn);
         div.appendChild(del);
         listDiv.appendChild(div);
       });
@@ -389,6 +689,181 @@
       addOrEditPoint(lat, lng, name, desc);
     };
 
+    document.getElementById('bulkWiki').onclick = async () => {
+      const pwd = prompt('Введите пароль для массового добавления описаний:');
+      if (pwd !== '59872461') return alert('Неверный пароль!');
+      
+      if (!confirm('Добавить описания из Википедии всем точкам с названиями?\n\nЭто может занять несколько минут.')) return;
+      
+      const pointsWithNames = points.filter(p => p.name && p.name.trim());
+      if (pointsWithNames.length === 0) return alert('Нет точек с названиями!');
+      
+      let processed = 0;
+      let success = 0;
+      let failed = 0;
+      
+      for (const pt of pointsWithNames) {
+        processed++;
+        console.log(`[${processed}/${pointsWithNames.length}] Обработка: ${pt.name}`);
+        
+        // Пропускаем если уже есть описание
+        if (pt.desc && pt.desc.trim()) {
+          console.log(`  ⏭ Уже есть описание`);
+          continue;
+        }
+        
+        try {
+          const searches = [
+            pt.name + ' село Казахстан',
+            pt.name + ' город Казахстан',
+            pt.name + ' Казахстан',
+            pt.name,
+          ];
+
+          let foundDesc = '';
+
+          for (const query of searches) {
+            const searchRes = await fetch(
+              `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
+            );
+            const searchJson = await searchRes.json();
+            const results = searchJson?.query?.search || [];
+
+            for (const r of results) {
+              const snippetLower = (r.snippet || '').toLowerCase();
+              const isPerson =
+                snippetLower.includes('родился') ||
+                snippetLower.includes('советский') && snippetLower.includes('актёр') ||
+                snippetLower.includes('биография') ||
+                snippetLower.includes('казахский политик') ||
+                snippetLower.includes('депутат') ||
+                /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
+              if (isPerson) continue;
+
+              const pageRes = await fetch(
+                `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
+              );
+              if (!pageRes.ok) continue;
+              const pageJson = await pageRes.json();
+              const pages = pageJson?.query?.pages || {};
+              const page = Object.values(pages)[0];
+              const text = (page?.extract || '').trim();
+
+              const textLower = text.toLowerCase();
+              const isPlaceLike =
+                textLower.includes('населённый пункт') ||
+                textLower.includes('село') ||
+                textLower.includes('город') ||
+                textLower.includes('аул') ||
+                textLower.includes('район') ||
+                textLower.includes('посёлок') ||
+                textLower.includes('область') ||
+                textLower.includes('река') ||
+                textLower.includes('озеро') ||
+                textLower.includes('расположен');
+
+              if (text && isPlaceLike) {
+                foundDesc = text;
+                break;
+              }
+            }
+
+            if (foundDesc) break;
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+          if (foundDesc) {
+            // УМНОЕ СЖАТИЕ с удалением дубликатов и выбором разнообразной инфы
+            let cleaned = foundDesc.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
+            cleaned = cleaned
+              .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*КАТО[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*почтовый индекс[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*телефонный код[^.]*\.?/gi, '')
+              .replace(/[,.]?\s*[\d]{6,}[^.]*\.?/gi, '')
+              .replace(/\([^)]*население[^)]*\)/gi, '')
+              .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
+              .replace(/  +/g, ' ').trim();
+            
+            const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
+            
+            // УБИРАЕМ ДУБЛИКАТЫ
+            const uniqueSentences = [];
+            const seen = new Set();
+            for (const s of sentences) {
+              const trimmed = s.trim();
+              const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
+              if (!seen.has(normalized) && trimmed.length >= 30) {
+                seen.add(normalized);
+                uniqueSentences.push(trimmed);
+              }
+            }
+            
+            let shortDesc = '';
+            let sentCount = 0;
+            const maxLength = 400;
+            
+            for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
+              const s = uniqueSentences[i];
+              
+              if ((shortDesc + s).length > maxLength) {
+                if (sentCount === 0 && s.length > 300) {
+                  shortDesc = s.slice(0, 297) + '...';
+                  break;
+                }
+                break;
+              }
+              
+              shortDesc += s + ' ';
+              sentCount++;
+              
+              if (sentCount >= 2 && shortDesc.length >= 200 && shortDesc.length <= 350) {
+                const nextSent = uniqueSentences[i + 1];
+                if (nextSent && (shortDesc + nextSent).length <= maxLength) {
+                  continue;
+                } else {
+                  break;
+                }
+              }
+            }
+            
+            shortDesc = shortDesc.trim();
+            
+            if (shortDesc.length > 400) {
+              shortDesc = shortDesc.slice(0, 397) + '...';
+            }
+            
+            if (!shortDesc) shortDesc = cleaned.slice(0, 300);
+            
+            // Обновляем в Supabase
+            const { error } = await sb.from('markers').update({ desc: shortDesc }).eq('id', pt.id);
+            if (error) throw new Error('Ошибка сохранения: ' + error.message);
+            
+            // Обновляем в памяти
+            pt.desc = shortDesc;
+            map.removeLayer(pt.marker);
+            const idx = points.indexOf(pt);
+            addMarker(pt, idx);
+            
+            success++;
+            console.log(`  ✅ Добавлено описание (${shortDesc.length} символов)`);
+          } else {
+            failed++;
+            console.log(`  ❌ Не найдено описание`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (err) {
+          failed++;
+          console.error(`  ❌ Ошибка: ${err.message}`);
+        }
+      }
+      
+      refreshList();
+      alert(`Готово!\n\nОбработано: ${processed}\nУспешно: ${success}\nНе найдено: ${failed}`);
+    };
+
     document.getElementById('deleteAll').onclick = async () => {
       const pwd = prompt('Введите пароль для удаления всех точек:');
       if (pwd !== '59872461') return alert('Неверный пароль!');
@@ -416,6 +891,7 @@
     document.getElementById('importJSON').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
+      if (prompt('Пароль для импорта:') !== '59872461') { e.target.value = ''; return alert('Неверный пароль!'); }
       try {
         const text = await file.text();
         const data = JSON.parse(text);
@@ -437,31 +913,46 @@
       }
     };
 
-    document.getElementById('importKmz').onchange = async e => {
+    document.getElementById('importKml').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
+      if (prompt('Пароль для импорта:') !== '59872461') { e.target.value = ''; return alert('Неверный пароль!'); }
+      
       try {
-        const zip = await JSZip.loadAsync(file);
-        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
-        if (!kmlFile) return alert("В KMZ нет KML-файла!");
-        const kmlText = await zip.files[kmlFile].async('text');
+        let kmlText = '';
+        
+        // Check if it's KMZ (zip file) or plain KML
+        if (file.name.endsWith('.kmz')) {
+          // KMZ - extract KML from zip
+          const zip = await JSZip.loadAsync(file);
+          const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+          if (!kmlFile) return alert("В KMZ нет KML-файла!");
+          kmlText = await zip.files[kmlFile].async('text');
+        } else {
+          // Plain KML - read directly
+          kmlText = await file.text();
+        }
+        
+        // Parse KML
         const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
         const placemarks = xml.getElementsByTagName('Placemark');
         
         let count = 0;
         for (let p of placemarks) {
+          const name = p.getElementsByTagName('name')[0]?.textContent || '';
+          const desc = p.getElementsByTagName('description')[0]?.textContent || '';
           const coords = p.getElementsByTagName('coordinates')[0]?.textContent?.trim();
           if (!coords) continue;
           const [lng, lat] = coords.split(',').map(Number);
           if (isNaN(lat) || isNaN(lng)) continue;
-          await addOrEditPoint(lat, lng);
+          await addOrEditPoint(lat, lng, name, desc);
           count++;
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        alert(`Импорт KMZ завершён! Добавлено точек: ${count}`);
+        alert(`Импорт завершён! Добавлено точек: ${count}`);
       } catch (err) {
-        console.error('KMZ import error:', err);
-        alert("Ошибка при чтении KMZ!");
+        console.error('KML/KMZ import error:', err);
+        alert("Ошибка при чтении KML/KMZ файла!");
       }
     };
 
@@ -596,6 +1087,23 @@
       }
     };
     // ── END ROUTE MODE ────────────────────────────────────────────────────────
+
+
+    // ── Online presence ──────────────────────────────────────────────────────
+    (function() {
+      try {
+        const presenceKey = Math.random().toString(36).slice(2);
+        const ch = sb.channel('online-presence', { config: { presence: { key: presenceKey } } });
+        ch.on('presence', { event: 'sync' }, () => {
+          const n = Object.keys(ch.presenceState()).length;
+          document.getElementById('onlineCount').textContent = n;
+        }).subscribe(async status => {
+          if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() });
+        });
+      } catch(e) {
+        document.getElementById('onlineCount').textContent = '—';
+      }
+    })();
 
     // Load points on startup
     loadPoints();
