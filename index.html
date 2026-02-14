@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Редактор карты ЗКО</title>
+  <title>Редактор карты ЗКО — v2.4.1</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -28,7 +28,6 @@
     .nav-btn { background: rgba(0,123,255,0.9); border: none; color: white; width: 46px; height: 46px; border-radius: 50%; font-size: 20px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
     .nav-btn:active { background: #0056b3; transform: scale(0.96); }
     #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2000; font-family: system-ui, sans-serif; }
-
     /* Dark theme */
     #panel { transition: all 0.3s ease, background 0.4s ease, color 0.4s ease; color: #111; }
     #panel input, #panel textarea, #panel select { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
@@ -40,13 +39,11 @@
     body.dark .point-item { background: #2a2a38; color: #e0e0e0; }
     body.dark .point-item:hover { background: #33334a; }
     body.dark #toggleArrow { background: #1e90ff; }
-
     /* Dark scrollbar */
     body.dark #panel::-webkit-scrollbar { width: 6px; }
     body.dark #panel::-webkit-scrollbar-track { background: #16161e; border-radius: 10px; }
     body.dark #panel::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
     body.dark #panel::-webkit-scrollbar-thumb:hover { background: #666; }
-
     /* Drag-and-drop */
     .point-item { cursor: grab; }
     .point-item.dragging { opacity: 0.4; cursor: grabbing; }
@@ -68,20 +65,16 @@
     .route-add-btn { background:#6f42c1; }
     body.dark .route-item { background:#2a2a38; color:#e0e0e0; }
     body.dark .route-item.drag-over { background:#2a1a40; }
-
     /* Online counter */
     #onlineBadge { display:flex; align-items:center; gap:5px; font-size:12px; color:#555; margin-bottom:8px; }
     #onlineDot { width:8px; height:8px; border-radius:50%; background:#28a745; animation:blink 2s infinite; flex-shrink:0; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
     body.dark #onlineBadge { color:#aaa; }
-
     /* Wiki button */
     .wiki-btn { background:#f8a100 !important; color:#fff; border:none; border-radius:4px; padding:3px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
     .wiki-btn:disabled { opacity:.5; cursor:default; }
-
     /* Route quick button */
     .route-q-btn { background:#6f42c1 !important; color:#fff; border:none; border-radius:5px; padding:4px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
-
     /* Admin panel */
     #adminPanel { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; width:90%; max-width:800px; max-height:80vh; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:3000; overflow:hidden; }
     #adminPanel.active { display:flex; flex-direction:column; }
@@ -101,6 +94,14 @@
   </style>
 </head>
 <body>
+  <script>
+    const correctPassword = '59872010';
+    const enteredPassword = prompt('🔐 Введите пароль для доступа к админ-панели:');
+    if (enteredPassword !== correctPassword) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;font-size:24px;color:#dc3545;">❌ Неверный пароль</div>';
+      throw new Error('Access denied');
+    }
+  </script>
   <div id="loading">Загрузка точек...</div>
   <div id="panel">
     <div id="onlineBadge"><span id="onlineDot"></span><span id="onlineCount">...</span> онлайн сейчас</div>
@@ -110,7 +111,10 @@
     <input type="text" id="pointLat" placeholder="Широта (lat)" />
     <input type="text" id="pointLng" placeholder="Долгота (lng)" />
     <input type="text" id="pointName" placeholder="Название (необязательно)" />
-    <textarea id="pointDesc" placeholder="Описание (необязательно)" rows="2" style="resize:vertical;"></textarea>
+    <div style="display:flex;gap:4px;margin-bottom:6px;">
+      <textarea id="pointDesc" placeholder="Описание (необязательно)" rows="2" style="resize:vertical;flex:1;margin-bottom:0;"></textarea>
+      <button id="autoWikiBtn" style="width:auto !important;padding:6px 10px;margin-bottom:0;background:#f8a100;font-size:20px;" title="Автозаполнение из Википедии">📖</button>
+    </div>
     <button id="selectModeBtn">Выбрать на карте</button>
     <button id="addPoint">Добавить точку</button>
     <button id="migrateFromLocal" style="background:#28a745;">Перенести из localStorage</button>
@@ -146,7 +150,16 @@
     <button class="nav-btn" id="prevBtn">←</button>
     <button class="nav-btn" id="nextBtn">→</button>
   </div>
-
+  <div id="adminBadge">🔐 Админ</div>
+  <div id="adminPanel">
+    <div id="adminHeader">
+      <h3 style="margin:0;">Посетители сайта</h3>
+      <button id="adminClose">×</button>
+    </div>
+    <div id="adminContent">
+      <p style="color:#666;font-size:13px;">Загрузка данных...</p>
+    </div>
+  </div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     // Supabase setup
@@ -154,21 +167,17 @@
     const supabaseUrl = 'https://diniabtxchgtbcfldwib.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c';
     const sb = createClient(supabaseUrl, supabaseKey);
-
     // Track visitor
     let sessionId = null;
-    
     async function trackVisitor() {
       try {
         const ua = navigator.userAgent;
         let device = 'Desktop';
         let browser = 'Unknown';
         let os = 'Unknown';
-
         // Detect device
         if (/mobile/i.test(ua)) device = 'Mobile';
         else if (/tablet|ipad/i.test(ua)) device = 'Tablet';
-
         // Detect browser
         if (ua.indexOf('Firefox') > -1) browser = 'Firefox';
         else if (ua.indexOf('SamsungBrowser') > -1) browser = 'Samsung Browser';
@@ -177,14 +186,12 @@
         else if (ua.indexOf('Edge') > -1) browser = 'Edge';
         else if (ua.indexOf('Chrome') > -1) browser = 'Chrome';
         else if (ua.indexOf('Safari') > -1) browser = 'Safari';
-
         // Detect OS
         if (ua.indexOf('Windows') > -1) os = 'Windows';
         else if (ua.indexOf('Mac') > -1) os = 'MacOS';
         else if (ua.indexOf('Linux') > -1) os = 'Linux';
         else if (ua.indexOf('Android') > -1) os = 'Android';
         else if (ua.indexOf('iOS') > -1 || ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) os = 'iOS';
-
         // Get IP (using ipify API)
         let ip = 'Unknown';
         try {
@@ -192,7 +199,6 @@
           const ipData = await ipRes.json();
           ip = ipData.ip;
         } catch {}
-
         // Save to Supabase and get session ID
         const { data, error } = await sb.from('visitor_logs').insert([{
           ip,
@@ -202,7 +208,6 @@
           os,
           last_seen: new Date().toISOString()
         }]).select();
-        
         if (data && data[0]) {
           sessionId = data[0].id;
           // Update heartbeat every 30 seconds
@@ -212,7 +217,6 @@
         console.error('Tracking error:', err);
       }
     }
-
     async function updateHeartbeat() {
       if (!sessionId) return;
       try {
@@ -223,35 +227,115 @@
         console.error('Heartbeat error:', err);
       }
     }
-
     // Admin panel functions
-    // (Disabled in public version)
-
+    document.getElementById('adminBadge').onclick = async () => {
+      const panel = document.getElementById('adminPanel');
+      panel.classList.add('active');
+      await loadAdminData();
+    };
+    async function loadAdminData() {
+      try {
+        const { data, error } = await sb.from('visitor_logs').select('*').order('visited_at', { ascending: false }).limit(200);
+        if (error) throw error;
+        const content = document.getElementById('adminContent');
+        if (data.length === 0) {
+          content.innerHTML = '<p style="color:#999;">Пока нет посетителей</p>';
+          return;
+        }
+        // Определяем активные сессии (последняя активность < 2 минут назад)
+        const now = new Date();
+        const activeSessions = data.filter(v => {
+          if (!v.last_seen) return false;
+          const lastSeen = new Date(v.last_seen);
+          const diff = (now - lastSeen) / 1000; // seconds
+          return diff < 120; // 2 minutes
+        });
+        let html = `
+          <div style="display:flex;gap:20px;margin-bottom:15px;flex-wrap:wrap;">
+            <div style="background:#28a745;color:white;padding:10px 15px;border-radius:8px;">
+              <div style="font-size:24px;font-weight:bold;">${activeSessions.length}</div>
+              <div style="font-size:12px;">🟢 Онлайн сейчас</div>
+            </div>
+            <div style="background:#007bff;color:white;padding:10px 15px;border-radius:8px;">
+              <div style="font-size:24px;font-weight:bold;">${data.length}</div>
+              <div style="font-size:12px;">📊 Всего визитов</div>
+            </div>
+          </div>
+        `;
+        if (activeSessions.length > 0) {
+          html += '<h4 style="margin:15px 0 10px;color:#28a745;">🟢 Активные сейчас:</h4>';
+          activeSessions.forEach(v => {
+            const lastSeen = new Date(v.last_seen);
+            const secondsAgo = Math.floor((now - lastSeen) / 1000);
+            const timeAgo = secondsAgo < 60 ? `${secondsAgo} сек назад` : `${Math.floor(secondsAgo / 60)} мин назад`;
+            html += `
+              <div class="visitor-item" style="border-left:3px solid #28a745;">
+                <div class="visitor-ip">🟢 ${v.ip}</div>
+                <div class="visitor-meta">
+                  📱 ${v.device} | 🌍 ${v.browser} | 💻 ${v.os}<br>
+                  ⏱ ${timeAgo}
+                </div>
+              </div>
+            `;
+          });
+        }
+        html += '<h4 style="margin:15px 0 10px;">📜 История визитов:</h4>';
+        data.forEach(v => {
+          const date = new Date(v.visited_at).toLocaleString('ru-RU');
+          const isActive = activeSessions.includes(v);
+          html += `
+            <div class="visitor-item" style="${isActive ? 'opacity:0.5;' : ''}">
+              <div class="visitor-ip">🌐 ${v.ip}</div>
+              <div class="visitor-meta">
+                📱 ${v.device} | 🌍 ${v.browser} | 💻 ${v.os}<br>
+                🕐 ${date}
+              </div>
+            </div>
+          `;
+        });
+        content.innerHTML = html;
+      } catch (err) {
+        document.getElementById('adminContent').innerHTML = `<p style="color:red;">Ошибка: ${err.message}</p>`;
+      }
+    }
+    document.getElementById('adminClose').onclick = () => {
+      document.getElementById('adminPanel').classList.remove('active');
+    };
     // Auto-refresh admin panel every 10 seconds if open
-    // (Disabled in public version)
-
+    setInterval(() => {
+      if (document.getElementById('adminPanel').classList.contains('active')) {
+        loadAdminData();
+      }
+    }, 10000);
     // Track on page load
     trackVisitor();
-
-
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-    const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}');
-    const map = L.map('map', { zoomControl: false, attributionControl: false, layers: [osmLayer] }).setView([50.9, 52.0], 7);
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      noWrap: true,
+      bounds: [[-90, -180], [90, 180]]
+    });
+    const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      noWrap: true,
+      bounds: [[-90, -180], [90, 180]]
+    });
+    const map = L.map('map', { 
+      zoomControl: false, 
+      attributionControl: false,
+      worldCopyJump: false,
+      maxBounds: [[-90, -180], [90, 180]],
+      maxBoundsViscosity: 1.0,
+      layers: [osmLayer] 
+    }).setView([50.9, 52.0], 7);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-
     const panel = document.getElementById('panel');
     const arrow = document.getElementById('toggleArrow');
-
     function togglePanel() {
       const hidden = panel.classList.toggle('hidden');
       arrow.textContent = hidden ? '>' : '<';
       arrow.style.left = hidden ? '0px' : '280px';
       arrow.style.opacity = hidden ? '0' : '1';
     }
-
     arrow.addEventListener('click', togglePanel);
     arrow.addEventListener('touchstart', e => { e.preventDefault(); togglePanel(); });
-
     document.addEventListener('mousemove', e => {
       if (e.clientX < 10 && panel.classList.contains('hidden')) {
         arrow.style.opacity = '1';
@@ -259,7 +343,6 @@
         arrow.style.opacity = '0';
       }
     });
-
     document.getElementById("mapType").addEventListener("change", e => {
       map.removeLayer(osmLayer);
       map.removeLayer(satelliteLayer);
@@ -271,18 +354,51 @@
         document.body.classList.remove('dark');
       }
     });
-
     let points = [];
     let selectMode = false, currentIndex = -1, editIndex = -1;
+    document.getElementById('autoWikiBtn').onclick = async () => {
+      const name = document.getElementById('pointName').value.trim();
+      if (!name) return;
+      const btn = document.getElementById('autoWikiBtn');
+      btn.disabled = true; btn.textContent = '🔍';
+      try {
+        const searches = [name + ' село Казахстан', name + ' город Казахстан', name + ' Казахстан', name];
+        let foundDesc = '';
+        for (const query of searches) {
+          const searchRes = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`);
+          const searchJson = await searchRes.json();
+          const results = searchJson?.query?.search || [];
+          for (const r of results) {
+            const snippetLower = (r.snippet || '').toLowerCase();
+            if (snippetLower.includes('родился') || snippetLower.includes('биография') || /(актёр|певец|политик)/.test(snippetLower)) continue;
+            const pageRes = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`);
+            if (!pageRes.ok) continue;
+            const pageJson = await pageRes.json();
+            const pages = pageJson?.query?.pages || {};
+            const page = Object.values(pages)[0];
+            const text = (page?.extract || '').trim();
+            const textLower = text.toLowerCase();
+            if (text && (textLower.includes('село') || textLower.includes('город') || textLower.includes('район') || textLower.includes('расположен'))) {
+              foundDesc = text; break;
+            }
+          }
+          if (foundDesc) break;
+          await new Promise(r => setTimeout(r, 200));
+        }
+        if (foundDesc) {
+          const shortened = foundDesc.length > 400 ? foundDesc.substring(0, 397) + '...' : foundDesc;
+          document.getElementById('pointDesc').value = shortened;
+        }
+      } catch (err) { console.error('Wiki error:', err); }
+      btn.disabled = false; btn.textContent = '📖';
+    };
     const listDiv = document.getElementById('pointsList');
     const searchInput = document.getElementById('searchPoints');
     const addBtn = document.getElementById('addPoint');
     const formTitle = document.getElementById('formTitle');
-
     function normalizePoint(p) {
       return { id: p.id, lat: Number(p.lat), lng: Number(p.lng), name: p.name || '', desc: p.desc || '' };
     }
-
     function addMarker(p, i) {
       const marker = L.marker([p.lat, p.lng]).addTo(map);
       const title = p.name ? `<b>${p.name}</b>` : `<b>Точка ${i + 1}</b>`;
@@ -292,7 +408,6 @@
       marker.on("click", () => { flyToPoint(i); loadPointToForm(i); });
       p.marker = marker;
     }
-
     function loadPointToForm(i) {
       const p = points[i];
       document.getElementById('pointLat').value = p.lat;
@@ -303,7 +418,6 @@
       addBtn.textContent = "Сохранить изменения";
       formTitle.textContent = "Редактировать точку";
     }
-
     function clearForm() {
       document.getElementById('pointLat').value = "";
       document.getElementById('pointLng').value = "";
@@ -313,22 +427,18 @@
       addBtn.textContent = "Добавить точку";
       formTitle.textContent = "Добавить точку";
     }
-
     // Load points from Supabase
     async function loadPoints() {
       try {
         const { data, error } = await sb.from('markers').select('*');
         if (error) throw error;
-        
         points.forEach(p => p.marker && map.removeLayer(p.marker));
         points = [];
-        
         data.forEach((p, i) => {
           const normalized = normalizePoint(p);
           points.push(normalized);
           addMarker(normalized, i);
         });
-        
         if (points.length > 0) currentIndex = 0;
         refreshList();
         document.getElementById('loading').style.display = 'none';
@@ -338,13 +448,10 @@
         document.getElementById('loading').style.display = 'none';
       }
     }
-
     let dragSrcIndex = null;
-
     function refreshList(filter = '') {
       listDiv.innerHTML = '';
       const lowerFilter = filter.toLowerCase();
-
       const filteredPoints = points
         .map((p, i) => ({ ...p, index: i }))
         .filter(p => {
@@ -352,22 +459,18 @@
           const name = (p.name || '').toLowerCase();
           return coords.includes(lowerFilter) || name.includes(lowerFilter);
         });
-
       points.forEach(p => {
         const visible = filteredPoints.some(fp => fp.lat === p.lat && fp.lng === p.lng);
         if (p.marker) p.marker.setOpacity(visible ? 1 : 0);
       });
-
       filteredPoints.forEach(p => {
         const div = document.createElement('div');
         div.className = 'point-item' + (p.index === currentIndex ? ' active' : '');
         div.draggable = true;
         div.dataset.index = p.index;
-
         const label = p.name ? `<b>${p.name}</b>` : `<b>Точка ${p.index + 1}</b>`;
         div.innerHTML = `<span class="drag-handle" title="Перетащи для сортировки">⠿</span><div class="point-text">${label}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
         div.onclick = () => { flyToPoint(p.index); loadPointToForm(p.index); };
-
         div.addEventListener('dragstart', e => {
           dragSrcIndex = p.index;
           setTimeout(() => div.classList.add('dragging'), 0);
@@ -385,7 +488,6 @@
           dragSrcIndex = null;
           refreshList(searchInput.value.trim());
         });
-
         const del = document.createElement('button');
         del.textContent = '🗑';
         del.className = 'delete-btn';
@@ -404,7 +506,6 @@
             alert('Ошибка удаления точки');
           }
         };
-
         // 🗺 Quick add to route
         const rqBtn = document.createElement('button');
         rqBtn.textContent = '🗺';
@@ -415,7 +516,6 @@
           if (!routeOrder.includes(p.index)) routeOrder.push(p.index);
           if (routeMode) renderRoutePanel();
         };
-
         // 📖 Wiki button
         const wikiBtn = document.createElement('button');
         wikiBtn.textContent = '📖';
@@ -433,17 +533,14 @@
               p.name + ' Казахстан',
               p.name,
             ];
-
             let fullText = '';
             let foundTitle = '';
-
             for (const query of searches) {
               const searchRes = await fetch(
                 `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
               );
               const searchJson = await searchRes.json();
               const results = searchJson?.query?.search || [];
-
               for (const r of results) {
                 // Пропускаем статьи которые явно про людей
                 const titleLower = r.title.toLowerCase();
@@ -456,7 +553,6 @@
                   snippetLower.includes('депутат') ||
                   /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
                 if (isPerson) continue;
-
                 // Получаем БОЛЬШЕ текста страницы (не только intro, а первую секцию целиком)
                 const pageRes = await fetch(
                   `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
@@ -466,7 +562,6 @@
                 const pages = pageJson?.query?.pages || {};
                 const page = Object.values(pages)[0];
                 const text = (page?.extract || '').trim();
-
                 // Проверяем что текст про место, а не человека
                 const textLower = text.toLowerCase();
                 const isPlaceLike =
@@ -485,7 +580,6 @@
                   textLower.includes('родился') ||
                   textLower.includes('родилась') ||
                   (textLower.includes('советский') && textLower.includes('актёр'));
-
                 if (text.length > 80 && isPlaceLike && !isPersonText) {
                   fullText = text;
                   foundTitle = r.title;
@@ -494,12 +588,9 @@
               }
               if (fullText) break;
             }
-
             if (!fullText) throw new Error('Статья о месте не найдена');
-
             // Step 2: Умное сжатие - убираем повторы и берём РАЗНУЮ инфу
             wikiBtn.textContent = '✍️';
-            
             // Чистим текст от технических данных
             let cleaned = fullText.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
             cleaned = cleaned
@@ -511,10 +602,8 @@
               .replace(/\([^)]*население[^)]*\)/gi, '')
               .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
               .replace(/  +/g, ' ').trim();
-            
             // Разбиваем на предложения
             const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-            
             // УБИРАЕМ ДУБЛИКАТЫ и короткие предложения
             const uniqueSentences = [];
             const seen = new Set();
@@ -527,16 +616,13 @@
                 uniqueSentences.push(trimmed);
               }
             }
-            
             // УМНОЕ СЖАТИЕ: берём 2-4 разнообразных предложения
             // Приоритет: первое (определение) + предложения с разной инфой
             let desc = '';
             let sentCount = 0;
             const maxLength = 400;
-            
             for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
               const s = uniqueSentences[i];
-              
               // Проверяем не превысим ли лимит
               if ((desc + s).length > maxLength) {
                 // Если это первое предложение и оно слишком длинное - обрезаем
@@ -547,10 +633,8 @@
                 // Иначе прекращаем добавлять
                 break;
               }
-              
               desc += s + ' ';
               sentCount++;
-              
               // Минимум 2 предложения, но если уже > 200 символов и есть 2+ предложения - можно остановиться
               if (sentCount >= 2 && desc.length >= 200 && desc.length <= 350) {
                 // Проверяем, есть ли ещё место для короткого предложения
@@ -562,16 +646,12 @@
                 }
               }
             }
-            
             desc = desc.trim();
-            
             // На всякий случай обрезаем если вышло больше 400
             if (desc.length > 400) {
               desc = desc.slice(0, 397) + '...';
             }
-            
             if (!desc) desc = cleaned.slice(0, 300);
-
             // Сразу сохраняем в Supabase — не ждём нажатия кнопки
             wikiBtn.textContent = '💾';
             const pt = points[p.index];
@@ -585,20 +665,17 @@
             loadPointToForm(p.index);
             document.getElementById('pointDesc').value = desc;
             panel.scrollTop = 0;
-
           } catch(err) {
             alert('Ошибка Вики: ' + err.message);
           }
           wikiBtn.disabled = false; wikiBtn.textContent = '📖';
         };
-
         div.appendChild(rqBtn);
         div.appendChild(wikiBtn);
         div.appendChild(del);
         listDiv.appendChild(div);
       });
     }
-
     async function addOrEditPoint(lat, lng, name = '', desc = '') {
       try {
         if (editIndex >= 0) {
@@ -608,7 +685,6 @@
             console.error('Supabase update error:', error);
             throw error;
           }
-          
           map.removeLayer(existing.marker);
           existing.lat = lat;
           existing.lng = lng;
@@ -624,7 +700,6 @@
             alert(`Ошибка Supabase: ${error.message}\nКод: ${error.code}\nДетали: ${error.details}`);
             throw error;
           }
-          
           const newPoint = normalizePoint(data[0]);
           points.push(newPoint);
           addMarker(newPoint, points.length - 1);
@@ -637,13 +712,11 @@
         }
       }
     }
-
     function flyToPoint(realIndex) {
       if (points.length === 0) return;
       // clamp with wrap
       if (realIndex < 0) realIndex = points.length - 1;
       if (realIndex >= points.length) realIndex = 0;
-
       const p = points[realIndex];
       if (!p) return;
       currentIndex = realIndex;
@@ -651,19 +724,15 @@
       setTimeout(() => p.marker && p.marker.openPopup(), 900);
       refreshList(searchInput.value.trim());
     }
-
     // prevBtn/nextBtn handled in route mode section
-
     document.getElementById('migrateFromLocal').onclick = async () => {
       try {
         const localData = localStorage.getItem('savedPoints');
         if (!localData) return alert('В localStorage нет сохранённых точек!');
-        
         const oldPoints = JSON.parse(localData);
         if (!Array.isArray(oldPoints) || oldPoints.length === 0) {
           return alert('В localStorage нет точек для переноса!');
         }
-        
         let count = 0;
         for (let p of oldPoints) {
           if (!isNaN(p.lat) && !isNaN(p.lng)) {
@@ -671,7 +740,6 @@
             if (!error) count++;
           }
         }
-        
         alert(`Перенесено ${count} точек в Supabase!`);
         await loadPoints();
       } catch (err) {
@@ -679,7 +747,6 @@
         alert('Ошибка при переносе точек');
       }
     };
-
     addBtn.onclick = () => {
       const lat = parseFloat(document.getElementById('pointLat').value);
       const lng = parseFloat(document.getElementById('pointLng').value);
@@ -688,30 +755,23 @@
       if (isNaN(lat) || isNaN(lng)) return alert("Введите координаты!");
       addOrEditPoint(lat, lng, name, desc);
     };
-
     document.getElementById('bulkWiki').onclick = async () => {
       const pwd = prompt('Введите пароль для массового добавления описаний:');
       if (pwd !== '59872461') return alert('Неверный пароль!');
-      
       if (!confirm('Добавить описания из Википедии всем точкам с названиями?\n\nЭто может занять несколько минут.')) return;
-      
       const pointsWithNames = points.filter(p => p.name && p.name.trim());
       if (pointsWithNames.length === 0) return alert('Нет точек с названиями!');
-      
       let processed = 0;
       let success = 0;
       let failed = 0;
-      
       for (const pt of pointsWithNames) {
         processed++;
         console.log(`[${processed}/${pointsWithNames.length}] Обработка: ${pt.name}`);
-        
         // Пропускаем если уже есть описание
         if (pt.desc && pt.desc.trim()) {
           console.log(`  ⏭ Уже есть описание`);
           continue;
         }
-        
         try {
           const searches = [
             pt.name + ' село Казахстан',
@@ -719,16 +779,13 @@
             pt.name + ' Казахстан',
             pt.name,
           ];
-
           let foundDesc = '';
-
           for (const query of searches) {
             const searchRes = await fetch(
               `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
             );
             const searchJson = await searchRes.json();
             const results = searchJson?.query?.search || [];
-
             for (const r of results) {
               const snippetLower = (r.snippet || '').toLowerCase();
               const isPerson =
@@ -739,7 +796,6 @@
                 snippetLower.includes('депутат') ||
                 /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
               if (isPerson) continue;
-
               const pageRes = await fetch(
                 `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
               );
@@ -748,7 +804,6 @@
               const pages = pageJson?.query?.pages || {};
               const page = Object.values(pages)[0];
               const text = (page?.extract || '').trim();
-
               const textLower = text.toLowerCase();
               const isPlaceLike =
                 textLower.includes('населённый пункт') ||
@@ -761,17 +816,14 @@
                 textLower.includes('река') ||
                 textLower.includes('озеро') ||
                 textLower.includes('расположен');
-
               if (text && isPlaceLike) {
                 foundDesc = text;
                 break;
               }
             }
-
             if (foundDesc) break;
             await new Promise(resolve => setTimeout(resolve, 200));
           }
-
           if (foundDesc) {
             // УМНОЕ СЖАТИЕ с удалением дубликатов и выбором разнообразной инфы
             let cleaned = foundDesc.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
@@ -784,9 +836,7 @@
               .replace(/\([^)]*население[^)]*\)/gi, '')
               .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
               .replace(/  +/g, ' ').trim();
-            
             const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-            
             // УБИРАЕМ ДУБЛИКАТЫ
             const uniqueSentences = [];
             const seen = new Set();
@@ -798,14 +848,11 @@
                 uniqueSentences.push(trimmed);
               }
             }
-            
             let shortDesc = '';
             let sentCount = 0;
             const maxLength = 400;
-            
             for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
               const s = uniqueSentences[i];
-              
               if ((shortDesc + s).length > maxLength) {
                 if (sentCount === 0 && s.length > 300) {
                   shortDesc = s.slice(0, 297) + '...';
@@ -813,10 +860,8 @@
                 }
                 break;
               }
-              
               shortDesc += s + ' ';
               sentCount++;
-              
               if (sentCount >= 2 && shortDesc.length >= 200 && shortDesc.length <= 350) {
                 const nextSent = uniqueSentences[i + 1];
                 if (nextSent && (shortDesc + nextSent).length <= maxLength) {
@@ -826,44 +871,34 @@
                 }
               }
             }
-            
             shortDesc = shortDesc.trim();
-            
             if (shortDesc.length > 400) {
               shortDesc = shortDesc.slice(0, 397) + '...';
             }
-            
             if (!shortDesc) shortDesc = cleaned.slice(0, 300);
-            
             // Обновляем в Supabase
             const { error } = await sb.from('markers').update({ desc: shortDesc }).eq('id', pt.id);
             if (error) throw new Error('Ошибка сохранения: ' + error.message);
-            
             // Обновляем в памяти
             pt.desc = shortDesc;
             map.removeLayer(pt.marker);
             const idx = points.indexOf(pt);
             addMarker(pt, idx);
-            
             success++;
             console.log(`  ✅ Добавлено описание (${shortDesc.length} символов)`);
           } else {
             failed++;
             console.log(`  ❌ Не найдено описание`);
           }
-          
           await new Promise(resolve => setTimeout(resolve, 500));
-          
         } catch (err) {
           failed++;
           console.error(`  ❌ Ошибка: ${err.message}`);
         }
       }
-      
       refreshList();
       alert(`Готово!\n\nОбработано: ${processed}\nУспешно: ${success}\nНе найдено: ${failed}`);
     };
-
     document.getElementById('deleteAll').onclick = async () => {
       const pwd = prompt('Введите пароль для удаления всех точек:');
       if (pwd !== '59872461') return alert('Неверный пароль!');
@@ -879,7 +914,6 @@
         alert('Ошибка удаления точек');
       }
     };
-
     document.getElementById('saveJSON').onclick = () => {
       const data = JSON.stringify(points.map(p => ({ name: p.name, desc: p.desc, lat: p.lat, lng: p.lng })), null, 2);
       const blob = new Blob([data], { type: 'application/json' });
@@ -887,7 +921,6 @@
       const a = document.createElement('a');
       a.href = url; a.download = 'карта_ZKO.json'; a.click(); URL.revokeObjectURL(url);
     };
-
     document.getElementById('importJSON').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -896,7 +929,6 @@
         const text = await file.text();
         const data = JSON.parse(text);
         if (!Array.isArray(data)) return alert("Неверный формат JSON!");
-        
         let count = 0;
         for (let p of data) {
           if (!isNaN(p.lat) && !isNaN(p.lng)) {
@@ -912,15 +944,12 @@
         alert("Ошибка при чтении JSON!");
       }
     };
-
     document.getElementById('importKml').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
       if (prompt('Пароль для импорта:') !== '59872461') { e.target.value = ''; return alert('Неверный пароль!'); }
-      
       try {
         let kmlText = '';
-        
         // Check if it's KMZ (zip file) or plain KML
         if (file.name.endsWith('.kmz')) {
           // KMZ - extract KML from zip
@@ -932,11 +961,9 @@
           // Plain KML - read directly
           kmlText = await file.text();
         }
-        
         // Parse KML
         const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
         const placemarks = xml.getElementsByTagName('Placemark');
-        
         let count = 0;
         for (let p of placemarks) {
           const name = p.getElementsByTagName('name')[0]?.textContent || '';
@@ -955,13 +982,11 @@
         alert("Ошибка при чтении KML/KMZ файла!");
       }
     };
-
     document.getElementById('selectModeBtn').onclick = () => {
       selectMode = !selectMode;
       document.getElementById('selectModeBtn').textContent = selectMode ? 'Отменить выбор' : 'Выбрать на карте';
       map.getContainer().style.cursor = selectMode ? 'crosshair' : '';
     };
-
     map.on('click', e => {
       if (selectMode) {
         document.getElementById('pointLat').value = e.latlng.lat.toFixed(6);
@@ -971,19 +996,14 @@
         map.getContainer().style.cursor = '';
       }
     });
-
     searchInput.oninput = e => refreshList(e.target.value.trim());
-
-
     // ── ROUTE MODE ────────────────────────────────────────────────────────────
     let routeOrder = []; // array of point indices defining navigation order
     let routePos = 0;    // current position in routeOrder
     let routeMode = false;
-
     const routeBtn = document.getElementById('routeBtn');
     const routePanel = document.getElementById('routePanel');
     const mainPanel = document.getElementById('mainPanel');
-
     routeBtn.onclick = () => {
       routeMode = !routeMode;
       routeBtn.classList.toggle('active', routeMode);
@@ -992,20 +1012,15 @@
       mainPanel.classList.toggle('route-hidden', routeMode);
       if (routeMode) renderRoutePanel();
     };
-
     document.getElementById('routeClearBtn').onclick = () => {
       routeOrder = []; routePos = 0; renderRoutePanel();
     };
-
     document.getElementById('routeSearch').oninput = e => renderRouteAddList(e.target.value.trim());
-
     function renderRoutePanel() {
       renderRouteList();
       renderRouteAddList(document.getElementById('routeSearch').value.trim());
     }
-
     let routeDragSrc = null;
-
     function renderRouteList() {
       const el = document.getElementById('routeList');
       el.innerHTML = '';
@@ -1022,13 +1037,11 @@
         div.innerHTML = `<span class="route-num">${ri+1}</span>
           <div class="point-text" style="flex:1;min-width:0;margin:0 4px;">${p.name ? `<b>${p.name}</b>` : `<b>Точка ${pi+1}</b>`}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>
           <button class="route-del" title="Убрать из маршрута">✕</button>`;
-
         div.querySelector('.route-del').onclick = () => {
           routeOrder.splice(ri, 1);
           if (routePos >= routeOrder.length) routePos = Math.max(0, routeOrder.length - 1);
           renderRouteList();
         };
-
         div.addEventListener('dragstart', e => { routeDragSrc = ri; setTimeout(() => div.classList.add('dragging'), 0); });
         div.addEventListener('dragend', () => div.classList.remove('dragging'));
         div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
@@ -1041,11 +1054,9 @@
           routeDragSrc = null;
           renderRouteList();
         });
-
         el.appendChild(div);
       });
     }
-
     function renderRouteAddList(filter = '') {
       const el = document.getElementById('routeAddList');
       el.innerHTML = '';
@@ -1064,7 +1075,6 @@
       });
       if (el.innerHTML === '') el.innerHTML = '<p style="font-size:12px;color:#888;text-align:center;">Все точки добавлены</p>';
     }
-
     // Override prev/next to use routeOrder when active
     document.getElementById('prevBtn').onclick = () => {
       if (routeMode && routeOrder.length > 0) {
@@ -1087,8 +1097,6 @@
       }
     };
     // ── END ROUTE MODE ────────────────────────────────────────────────────────
-
-
     // ── Online presence ──────────────────────────────────────────────────────
     (function() {
       try {
@@ -1104,7 +1112,6 @@
         document.getElementById('onlineCount').textContent = '—';
       }
     })();
-
     // Load points on startup
     loadPoints();
   </script>
