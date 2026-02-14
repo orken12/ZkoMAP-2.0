@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>KazMap v2.4.0</title>
+  <title>ZkoMap v2.5.0</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -116,15 +116,6 @@
     .pt-body { flex: 1; min-width: 0; }
     .pt-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pt-coord { font-size: 11px; color: var(--muted); margin-top: 1px; }
-    .wiki-btn {
-      opacity: 0; flex-shrink: 0;
-      background: rgba(168,85,247,.18); border: 1px solid rgba(168,85,247,.3);
-      color: #c084fc; border-radius: 6px; padding: 3px 7px;
-      font-size: 11px; cursor: pointer; transition: opacity .15s, background .15s;
-      white-space: nowrap;
-    }
-    .pt-item:hover .wiki-btn { opacity: 1; }
-    .wiki-btn:hover { background: rgba(168,85,247,.35); }
 
     /* ── ADD SECTION ── */
     #addSection {
@@ -469,32 +460,6 @@
             <div class="pt-coord">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
           </div>`;
 
-        // Wiki button
-        const wb = document.createElement('button');
-        wb.className = 'wiki-btn'; wb.textContent = '📖 Вики';
-        wb.onclick = async e => {
-          e.stopPropagation();
-          if (!p.name) return alert('Нет названия');
-          wb.disabled = true; wb.textContent = '🔍';
-          try {
-            const text = await fetchWiki(p.name);
-            if (!text) throw new Error('Статья не найдена');
-            wb.textContent = '💾';
-            const desc = cleanWiki(text);
-            const { error } = await sb.from('markers').update({ desc }).eq('id', p.id);
-            if (error) throw new Error(error.message);
-            const ri = points.findIndex(x => x.id === p.id);
-            if (ri !== -1) {
-              points[ri].desc = desc;
-              map.removeLayer(points[ri].marker);
-              addMarker(points[ri], ri);
-            }
-            refreshList(searchInput.value.trim());
-          } catch(err) { alert('Вики: ' + err.message); }
-          wb.disabled = false; wb.textContent = '📖 Вики';
-        };
-
-        div.appendChild(wb);
         div.onclick = () => flyToPoint(p.index);
         listDiv.appendChild(div);
       });
