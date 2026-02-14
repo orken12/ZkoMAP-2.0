@@ -1,1119 +1,574 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Редактор карты ЗКО — v2.4.1</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <title>KazMap v2.4.0</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    html, body, #map { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-    #panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.98); padding: 14px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); width: 270px; font-family: system-ui, sans-serif; transition: all 0.3s ease; max-height: 85vh; overflow-y: auto; }
-    #panel.hidden { opacity: 0; transform: translateX(-320px); pointer-events: none; }
-    #toggleArrow { position: absolute; top: 50%; left: 280px; transform: translateY(-50%); background: #007bff; color: white; border: none; border-radius: 0 6px 6px 0; width: 26px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1100; box-shadow: 1px 2px 5px rgba(0,0,0,0.3); font-size: 18px; transition: left 0.3s ease, opacity 0.3s ease; }
-    #toggleArrow.hidden { opacity: 0; pointer-events: none; }
-    #panel input, #panel textarea, #panel select { width: 100%; margin-bottom: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-    #panel button { width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; font-size: 14px; margin-bottom: 5px; }
-    #panel button:hover { background: #0056b3; }
-    #panel .delete-btn, #panel .route-del { width: auto !important; padding: 4px 8px; }
-    .point-item { display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; margin-bottom: 4px; background: #f2f2f2; cursor: pointer; font-size: 14px; min-width: 0; }
-    .point-item.active { outline: 2px solid #007bff; }
-    body.dark .point-item.active { outline: 2px solid #4da3ff; }
-    .point-text { flex: 1; min-width: 0; overflow: hidden; }
-    .point-text b, .point-text small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .delete-btn { background: #dc3545; color: white; border: none; border-radius: 5px; padding: 4px 8px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
-    .leaflet-control-zoom { right: 15px !important; bottom: 80px !important; }
-    #mobileArrows { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 1200; }
-    .nav-btn { background: rgba(0,123,255,0.9); border: none; color: white; width: 46px; height: 46px; border-radius: 50%; font-size: 20px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
-    .nav-btn:active { background: #0056b3; transform: scale(0.96); }
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2000; font-family: system-ui, sans-serif; }
-    /* Dark theme */
-    #panel { transition: all 0.3s ease, background 0.4s ease, color 0.4s ease; color: #111; }
-    #panel input, #panel textarea, #panel select { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
-    .point-item { transition: background 0.4s ease, color 0.4s ease; }
-    body.dark #panel { background: rgba(22,22,30,0.97); color: #e0e0e0; box-shadow: 0 2px 12px rgba(0,0,0,0.6); }
-    body.dark #panel input, body.dark #panel textarea, body.dark #panel select { background: #2a2a38; color: #e0e0e0; border-color: #444; }
-    body.dark #panel label { color: #bbb; }
-    body.dark #panel h3 { color: #fff; }
-    body.dark .point-item { background: #2a2a38; color: #e0e0e0; }
-    body.dark .point-item:hover { background: #33334a; }
-    body.dark #toggleArrow { background: #1e90ff; }
-    /* Dark scrollbar */
-    body.dark #panel::-webkit-scrollbar { width: 6px; }
-    body.dark #panel::-webkit-scrollbar-track { background: #16161e; border-radius: 10px; }
-    body.dark #panel::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
-    body.dark #panel::-webkit-scrollbar-thumb:hover { background: #666; }
-    /* Drag-and-drop */
-    .point-item { cursor: grab; }
-    .point-item.dragging { opacity: 0.4; cursor: grabbing; }
-    .point-item.drag-over { outline: 2px dashed #007bff; background: #d0e8ff; }
-    body.dark .point-item.drag-over { background: #1a2a40; outline-color: #4da3ff; }
-    .drag-handle { color: #aaa; font-size: 16px; margin-right: 5px; cursor: grab; user-select: none; flex-shrink: 0; }
-    body.dark .drag-handle { color: #555; }
-    /* Route mode */
-    #routePanel { display:none; }
-    #routePanel.active { display:block; }
-    #mainPanel.route-hidden { display:none; }
-    #routeBtn { background: #6f42c1; }
-    #routeBtn.active { background: #4a148c; }
-    .route-item { display:flex; align-items:center; gap:4px; padding:5px 6px; border-radius:6px; margin-bottom:4px; background:#f2f2f2; font-size:13px; cursor:grab; }
-    .route-item.dragging { opacity:0.4; }
-    .route-item.drag-over { outline:2px dashed #6f42c1; }
-    .route-num { background:#6f42c1; color:#fff; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; flex-shrink:0; }
-    .route-del { background:none; border:none; color:#dc3545; font-size:15px; cursor:pointer; padding:0 2px; flex-shrink:0; margin-left:auto; }
-    .route-add-btn { background:#6f42c1; }
-    body.dark .route-item { background:#2a2a38; color:#e0e0e0; }
-    body.dark .route-item.drag-over { background:#2a1a40; }
-    /* Online counter */
-    #onlineBadge { display:flex; align-items:center; gap:5px; font-size:12px; color:#555; margin-bottom:8px; }
-    #onlineDot { width:8px; height:8px; border-radius:50%; background:#28a745; animation:blink 2s infinite; flex-shrink:0; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
-    body.dark #onlineBadge { color:#aaa; }
-    /* Wiki button */
-    .wiki-btn { background:#f8a100 !important; color:#fff; border:none; border-radius:4px; padding:3px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
-    .wiki-btn:disabled { opacity:.5; cursor:default; }
-    /* Route quick button */
-    .route-q-btn { background:#6f42c1 !important; color:#fff; border:none; border-radius:5px; padding:4px 7px; font-size:12px; cursor:pointer; flex-shrink:0; width:auto !important; }
-    /* Admin panel */
-    #adminPanel { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; width:90%; max-width:800px; max-height:80vh; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:3000; overflow:hidden; }
-    #adminPanel.active { display:flex; flex-direction:column; }
-    #adminHeader { display:flex; justify-content:space-between; align-items:center; padding:15px 20px; background:#007bff; color:white; }
-    #adminClose { background:none; border:none; color:white; font-size:24px; cursor:pointer; padding:0; width:30px; }
-    #adminContent { flex:1; overflow-y:auto; padding:20px; }
-    .visitor-item { padding:12px; border-bottom:1px solid #eee; font-size:14px; }
-    .visitor-item:hover { background:#f5f5f5; }
-    .visitor-ip { font-weight:bold; color:#007bff; }
-    .visitor-meta { color:#666; font-size:12px; margin-top:4px; }
-    #adminBadge { position:fixed; bottom:80px; left:20px; background:#dc3545; color:white; padding:8px 12px; border-radius:20px; font-size:12px; cursor:pointer; z-index:1500; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
-    body.dark #adminPanel { background:#1a1a24; color:#e0e0e0; }
-    body.dark #adminHeader { background:#1e90ff; }
-    body.dark .visitor-item { border-bottom-color:#333; }
-    body.dark .visitor-item:hover { background:#2a2a38; }
-    body.dark .visitor-meta { color:#aaa; }
+    :root {
+      --bg:      #0d0f14;
+      --panel:   rgba(17,20,28,0.94);
+      --border:  rgba(255,255,255,0.07);
+      --accent:  #4f8ef7;
+      --accent2: #a855f7;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --hover:   rgba(79,142,247,0.08);
+      --active:  rgba(79,142,247,0.15);
+      --item:    rgba(255,255,255,0.04);
+      --w:       300px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: 'Golos Text', system-ui, sans-serif; color: var(--text); }
+
+    /* ── LAYOUT ── */
+    #app { display: flex; height: 100vh; }
+    #mapWrap { flex: 1; position: relative; }
+    #map { position: absolute; inset: 0; }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: var(--w); height: 100%; flex-shrink: 0;
+      background: var(--panel);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      transition: transform .3s cubic-bezier(.4,0,.2,1), margin-left .3s cubic-bezier(.4,0,.2,1);
+      z-index: 10;
+    }
+    #sidebar.collapsed { margin-left: calc(-1 * var(--w)); }
+
+    /* ── HEADER ── */
+    #sHead {
+      padding: 18px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .brand {
+      font-family: 'Unbounded', sans-serif;
+      font-size: 16px; font-weight: 700; letter-spacing: -.3px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    #onlineRow { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34,197,94,.5);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+      70%  { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+
+    /* ── STATS ── */
+    #statsRow {
+      display: flex; gap: 6px; padding: 10px 12px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .stat-chip {
+      flex: 1; background: var(--item); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 8px; text-align: center;
+    }
+    .stat-val { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; color: var(--accent); }
+    .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: .4px; }
+
+    /* ── SEARCH ── */
+    #searchWrap { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    #searchPoints {
+      width: 100%; background: var(--item); border: 1px solid var(--border);
+      border-radius: 9px; padding: 8px 11px 8px 32px;
+      font-size: 13px; color: var(--text); font-family: inherit; outline: none;
+      transition: border-color .2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 10px center;
+    }
+    #searchPoints:focus { border-color: var(--accent); }
+    #searchPoints::placeholder { color: var(--muted); }
+
+    /* ── LIST ── */
+    #listWrap { flex: 1; overflow-y: auto; padding: 6px 8px; }
+    #listWrap::-webkit-scrollbar { width: 3px; }
+    #listWrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+
+    .pt-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 10px; border-radius: 10px; cursor: pointer;
+      transition: background .15s; border: 1px solid transparent;
+      margin-bottom: 2px;
+    }
+    .pt-item:hover { background: var(--hover); }
+    .pt-item.active { background: var(--active); border-color: rgba(79,142,247,.25); }
+    .pt-avatar {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Unbounded', sans-serif; font-size: 11px; font-weight: 700; color: #fff;
+    }
+    .pt-body { flex: 1; min-width: 0; }
+    .pt-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pt-coord { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .wiki-btn {
+      opacity: 0; flex-shrink: 0;
+      background: rgba(168,85,247,.18); border: 1px solid rgba(168,85,247,.3);
+      color: #c084fc; border-radius: 6px; padding: 3px 7px;
+      font-size: 11px; cursor: pointer; transition: opacity .15s, background .15s;
+      white-space: nowrap;
+    }
+    .pt-item:hover .wiki-btn { opacity: 1; }
+    .wiki-btn:hover { background: rgba(168,85,247,.35); }
+
+    /* ── ADD SECTION ── */
+    #addSection {
+      padding: 10px 12px 14px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    #addToggle {
+      width: 100%; border: none; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-family: 'Golos Text', sans-serif;
+      font-size: 13px; font-weight: 600; padding: 10px;
+      cursor: pointer; transition: opacity .2s;
+    }
+    #addToggle:hover { opacity: .85; }
+    #addForm { display: none; margin-top: 9px; }
+    #addForm.open { display: block; animation: fadeUp .2s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+    .f-input {
+      width: 100%; background: var(--item); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; font-size: 13px;
+      color: var(--text); font-family: inherit; outline: none;
+      transition: border-color .2s; margin-bottom: 6px; resize: none;
+    }
+    .f-input:focus { border-color: var(--accent); }
+    .f-input::placeholder { color: var(--muted); }
+    .f-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .f-row .f-input { flex: 1; margin-bottom: 0; }
+    .desc-wrap { display: flex; gap: 6px; margin-bottom: 6px; }
+    .desc-wrap .f-input { flex: 1; margin-bottom: 0; }
+    .wiki-auto-btn {
+      background: rgba(168,85,247,.2); border: 1px solid rgba(168,85,247,.3);
+      color: #c084fc; border-radius: 8px; padding: 0 11px;
+      font-size: 16px; cursor: pointer; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .wiki-auto-btn:hover { background: rgba(168,85,247,.38); }
+    .btn-row { display: flex; gap: 6px; }
+    .btn-map {
+      flex: 1; border: 1px solid var(--border); background: var(--item);
+      color: var(--muted); border-radius: 8px; padding: 8px 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-map:hover { border-color: var(--accent); color: var(--text); }
+    .btn-add {
+      flex: 1; border: none; background: var(--accent);
+      color: #fff; border-radius: 8px; padding: 8px 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: opacity .2s;
+    }
+    .btn-add:hover { opacity: .85; }
+
+    /* ── SIDEBAR TOGGLE ── */
+    #sideToggle {
+      position: fixed; top: 50%; left: var(--w);
+      transform: translateY(-50%);
+      z-index: 1100; background: var(--panel);
+      border: 1px solid var(--border); border-left: none;
+      border-radius: 0 8px 8px 0; width: 22px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); font-size: 12px;
+      backdrop-filter: blur(12px);
+      transition: left .3s cubic-bezier(.4,0,.2,1), color .2s, background .2s;
+    }
+    #sideToggle:hover { color: var(--text); background: rgba(79,142,247,.15); }
+
+    /* ── MAP CONTROLS ── */
+    #layerToggle {
+      position: absolute; top: 14px; right: 14px; z-index: 1000;
+      background: var(--panel); backdrop-filter: blur(14px);
+      border: 1px solid var(--border); border-radius: 10px;
+      display: flex; overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+    .layer-btn {
+      border: none; background: transparent; color: var(--muted);
+      padding: 7px 13px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all .15s;
+    }
+    .layer-btn.active { background: var(--accent); color: #fff; }
+
+    #navBtns {
+      position: absolute; bottom: 22px; right: 16px;
+      display: flex; gap: 8px; z-index: 1000;
+    }
+    .nav-btn {
+      width: 44px; height: 44px; border-radius: 12px; border: none;
+      background: var(--panel); backdrop-filter: blur(12px);
+      border: 1px solid var(--border); color: var(--text);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      transition: background .15s, transform .1s;
+    }
+    .nav-btn:hover { background: rgba(79,142,247,.2); border-color: rgba(79,142,247,.4); }
+    .nav-btn:active { transform: scale(.92); }
+
+    /* ── LEAFLET overrides ── */
+    .leaflet-control-zoom { right: 14px !important; bottom: 80px !important; }
+    .leaflet-control-zoom a {
+      background: var(--panel) !important; color: var(--text) !important;
+      border-color: var(--border) !important; backdrop-filter: blur(12px) !important;
+    }
+    .leaflet-control-zoom a:hover { background: rgba(79,142,247,.2) !important; }
+    .leaflet-popup-content-wrapper {
+      background: rgba(17,20,28,.96) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5) !important;
+      color: var(--text) !important;
+      font-family: 'Golos Text', sans-serif !important;
+      backdrop-filter: blur(16px) !important;
+    }
+    .leaflet-popup-tip { background: rgba(17,20,28,.96) !important; }
+    .leaflet-popup-content { margin: 12px 14px !important; font-size: 13px !important; line-height: 1.5 !important; }
+    .leaflet-popup-content b { font-family: 'Unbounded', sans-serif; font-size: 12px; color: var(--accent); display: block; margin-bottom: 4px; }
+    .leaflet-popup-content i { color: #9ca3af; font-style: normal; font-size: 12px; }
+
+    /* ── LOADING ── */
+    #loading {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    }
+    .spin {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 3px solid rgba(79,142,247,.2); border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin-lbl { font-family: 'Unbounded', sans-serif; font-size: 11px; color: var(--muted); letter-spacing: .6px; }
   </style>
 </head>
 <body>
-  <script>
-    const correctPassword = '59872010';
-    const enteredPassword = prompt('🔐 Введите пароль для доступа к админ-панели:');
-    if (enteredPassword !== correctPassword) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;font-size:24px;color:#dc3545;">❌ Неверный пароль</div>';
-      throw new Error('Access denied');
-    }
-  </script>
-  <div id="loading">Загрузка точек...</div>
-  <div id="panel">
-    <div id="onlineBadge"><span id="onlineDot"></span><span id="onlineCount">...</span> онлайн сейчас</div>
-    <h3 id="formTitle">Добавить точку</h3>
-    <label>Тип карты:</label>
-    <select id="mapType"><option value="osm">Обычная</option><option value="satellite">Спутниковая</option></select>
-    <input type="text" id="pointLat" placeholder="Широта (lat)" />
-    <input type="text" id="pointLng" placeholder="Долгота (lng)" />
-    <input type="text" id="pointName" placeholder="Название (необязательно)" />
-    <div style="display:flex;gap:4px;margin-bottom:6px;">
-      <textarea id="pointDesc" placeholder="Описание (необязательно)" rows="2" style="resize:vertical;flex:1;margin-bottom:0;"></textarea>
-      <button id="autoWikiBtn" style="width:auto !important;padding:6px 10px;margin-bottom:0;background:#f8a100;font-size:20px;" title="Автозаполнение из Википедии">📖</button>
+
+<div id="loading">
+  <div class="spin"></div>
+  <div class="spin-lbl">ЗАГРУЗКА КАРТЫ</div>
+</div>
+
+<div id="app">
+  
+  <div id="sidebar">
+    <div id="sHead">
+      <div class="brand">KazMap</div>
+      <div class="brand-sub">Интерактивная карта Казахстана</div>
+      <div id="onlineRow">
+        <span class="pulse-dot"></span>
+        <span id="onlineTxt">...</span> онлайн сейчас
+      </div>
     </div>
-    <button id="selectModeBtn">Выбрать на карте</button>
-    <button id="addPoint">Добавить точку</button>
-    <button id="migrateFromLocal" style="background:#28a745;">Перенести из localStorage</button>
-    <button id="bulkWiki" style="background:#f8a100;">📖 Добавить описания всем (Википедия)</button>
-    <button id="deleteAll" style="background:#dc3545;">Удалить все точки</button>
-    <button id="saveJSON" style="background:#17a2b8;">Экспорт в JSON</button>
-    <label style="font-size:13px;color:#333;">Импортировать из JSON:</label>
-    <input type="file" id="importJSON" accept=".json" />
-    <label style="font-size:13px;color:#333;">Импортировать из KML/KMZ:</label>
-    <input type="file" id="importKml" accept=".kml,.kmz" />
-    <input type="text" id="searchPoints" placeholder="Поиск по координатам..." style="margin-top:10px;padding:6px;border-radius:6px;border:1px solid #ccc;font-size:14px;"/>
-    <button id="routeBtn" style="background:#6f42c1;margin-top:6px;">🗺 Настроить маршрут ←→</button>
-    <div id="mainPanel">
+
+    <div id="statsRow">
+      <div class="stat-chip">
+        <div class="stat-val" id="ptCount">0</div>
+        <div class="stat-lbl">ТОЧЕК</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val" id="onlineCount">—</div>
+        <div class="stat-lbl">ОНЛАЙН</div>
+      </div>
+    </div>
+
+    <div id="searchWrap">
+      <input id="searchPoints" placeholder="Поиск по названию..."/>
+    </div>
+
+    <div id="listWrap">
       <div id="pointsList"></div>
     </div>
-    <div id="routePanel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <b style="font-size:13px;">Порядок маршрута</b>
-        <button id="routeClearBtn" style="background:#dc3545;width:auto;padding:3px 8px;font-size:12px;">Очистить</button>
+
+    <div id="addSection">
+      <button id="addToggle">+ Добавить точку</button>
+      <div id="addForm">
+        <input class="f-input" id="pointName" placeholder="Название"/>
+        <div class="desc-wrap">
+          <textarea class="f-input" id="pointDesc" placeholder="Описание" rows="2"></textarea>
+          <button class="wiki-auto-btn" id="autoWikiBtn" title="Заполнить из Вики">📖</button>
+        </div>
+        <div class="f-row">
+          <input class="f-input" id="pointLat" placeholder="Широта"/>
+          <input class="f-input" id="pointLng" placeholder="Долгота"/>
+        </div>
+        <div class="btn-row">
+          <button class="btn-map" id="selectModeBtn">📍 На карте</button>
+          <button class="btn-add" id="addPoint">Добавить</button>
+        </div>
       </div>
-      <p style="font-size:12px;color:#888;margin:0 0 6px;">Перетащи точки чтобы изменить порядок. Стрелки ← → будут следовать этому маршруту.</p>
-      <div id="routeList"></div>
-      <div id="routeAddArea">
-        <p style="font-size:12px;color:#888;margin:4px 0 4px;">Добавить точку в маршрут:</p>
-        <input type="text" id="routeSearch" placeholder="Поиск по названию..." style="margin-bottom:4px;"/>
-        <div id="routeAddList"></div>
-      </div>
     </div>
   </div>
-  <button id="toggleArrow">&lt;</button>
-  <div id="map"></div>
-  <div id="mobileArrows">
-    <button class="nav-btn" id="prevBtn">←</button>
-    <button class="nav-btn" id="nextBtn">→</button>
-  </div>
-  <div id="adminBadge">🔐 Админ</div>
-  <div id="adminPanel">
-    <div id="adminHeader">
-      <h3 style="margin:0;">Посетители сайта</h3>
-      <button id="adminClose">×</button>
+
+  
+  <div id="mapWrap">
+    <div id="sideToggle">‹</div>
+    <div id="map"></div>
+
+    <div id="layerToggle">
+      <button class="layer-btn active" id="btnOsm">Карта</button>
+      <button class="layer-btn" id="btnSat">Спутник</button>
     </div>
-    <div id="adminContent">
-      <p style="color:#666;font-size:13px;">Загрузка данных...</p>
+
+    <div id="navBtns">
+      <button class="nav-btn" id="prevBtn">←</button>
+      <button class="nav-btn" id="nextBtn">→</button>
     </div>
   </div>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    // Supabase setup
-    const { createClient } = supabase;
-    const supabaseUrl = 'https://diniabtxchgtbcfldwib.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c';
-    const sb = createClient(supabaseUrl, supabaseKey);
-    // Track visitor
-    let sessionId = null;
-    async function trackVisitor() {
-      try {
-        const ua = navigator.userAgent;
-        let device = 'Desktop';
-        let browser = 'Unknown';
-        let os = 'Unknown';
-        // Detect device
-        if (/mobile/i.test(ua)) device = 'Mobile';
-        else if (/tablet|ipad/i.test(ua)) device = 'Tablet';
-        // Detect browser
-        if (ua.indexOf('Firefox') > -1) browser = 'Firefox';
-        else if (ua.indexOf('SamsungBrowser') > -1) browser = 'Samsung Browser';
-        else if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) browser = 'Opera';
-        else if (ua.indexOf('Trident') > -1) browser = 'IE';
-        else if (ua.indexOf('Edge') > -1) browser = 'Edge';
-        else if (ua.indexOf('Chrome') > -1) browser = 'Chrome';
-        else if (ua.indexOf('Safari') > -1) browser = 'Safari';
-        // Detect OS
-        if (ua.indexOf('Windows') > -1) os = 'Windows';
-        else if (ua.indexOf('Mac') > -1) os = 'MacOS';
-        else if (ua.indexOf('Linux') > -1) os = 'Linux';
-        else if (ua.indexOf('Android') > -1) os = 'Android';
-        else if (ua.indexOf('iOS') > -1 || ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) os = 'iOS';
-        // Get IP (using ipify API)
-        let ip = 'Unknown';
-        try {
-          const ipRes = await fetch('https://api.ipify.org?format=json');
-          const ipData = await ipRes.json();
-          ip = ipData.ip;
-        } catch {}
-        // Save to Supabase and get session ID
-        const { data, error } = await sb.from('visitor_logs').insert([{
-          ip,
-          user_agent: ua,
-          device,
-          browser,
-          os,
-          last_seen: new Date().toISOString()
-        }]).select();
-        if (data && data[0]) {
-          sessionId = data[0].id;
-          // Update heartbeat every 30 seconds
-          setInterval(updateHeartbeat, 30000);
-        }
-      } catch (err) {
-        console.error('Tracking error:', err);
-      }
-    }
-    async function updateHeartbeat() {
-      if (!sessionId) return;
-      try {
-        await sb.from('visitor_logs').update({ 
-          last_seen: new Date().toISOString() 
-        }).eq('id', sessionId);
-      } catch (err) {
-        console.error('Heartbeat error:', err);
-      }
-    }
-    // Admin panel functions
-    document.getElementById('adminBadge').onclick = async () => {
-      const panel = document.getElementById('adminPanel');
-      panel.classList.add('active');
-      await loadAdminData();
-    };
-    async function loadAdminData() {
-      try {
-        const { data, error } = await sb.from('visitor_logs').select('*').order('visited_at', { ascending: false }).limit(200);
-        if (error) throw error;
-        const content = document.getElementById('adminContent');
-        if (data.length === 0) {
-          content.innerHTML = '<p style="color:#999;">Пока нет посетителей</p>';
-          return;
-        }
-        // Определяем активные сессии (последняя активность < 2 минут назад)
-        const now = new Date();
-        const activeSessions = data.filter(v => {
-          if (!v.last_seen) return false;
-          const lastSeen = new Date(v.last_seen);
-          const diff = (now - lastSeen) / 1000; // seconds
-          return diff < 120; // 2 minutes
-        });
-        let html = `
-          <div style="display:flex;gap:20px;margin-bottom:15px;flex-wrap:wrap;">
-            <div style="background:#28a745;color:white;padding:10px 15px;border-radius:8px;">
-              <div style="font-size:24px;font-weight:bold;">${activeSessions.length}</div>
-              <div style="font-size:12px;">🟢 Онлайн сейчас</div>
-            </div>
-            <div style="background:#007bff;color:white;padding:10px 15px;border-radius:8px;">
-              <div style="font-size:24px;font-weight:bold;">${data.length}</div>
-              <div style="font-size:12px;">📊 Всего визитов</div>
-            </div>
-          </div>
-        `;
-        if (activeSessions.length > 0) {
-          html += '<h4 style="margin:15px 0 10px;color:#28a745;">🟢 Активные сейчас:</h4>';
-          activeSessions.forEach(v => {
-            const lastSeen = new Date(v.last_seen);
-            const secondsAgo = Math.floor((now - lastSeen) / 1000);
-            const timeAgo = secondsAgo < 60 ? `${secondsAgo} сек назад` : `${Math.floor(secondsAgo / 60)} мин назад`;
-            html += `
-              <div class="visitor-item" style="border-left:3px solid #28a745;">
-                <div class="visitor-ip">🟢 ${v.ip}</div>
-                <div class="visitor-meta">
-                  📱 ${v.device} | 🌍 ${v.browser} | 💻 ${v.os}<br>
-                  ⏱ ${timeAgo}
-                </div>
-              </div>
-            `;
-          });
-        }
-        html += '<h4 style="margin:15px 0 10px;">📜 История визитов:</h4>';
-        data.forEach(v => {
-          const date = new Date(v.visited_at).toLocaleString('ru-RU');
-          const isActive = activeSessions.includes(v);
-          html += `
-            <div class="visitor-item" style="${isActive ? 'opacity:0.5;' : ''}">
-              <div class="visitor-ip">🌐 ${v.ip}</div>
-              <div class="visitor-meta">
-                📱 ${v.device} | 🌍 ${v.browser} | 💻 ${v.os}<br>
-                🕐 ${date}
-              </div>
-            </div>
-          `;
-        });
-        content.innerHTML = html;
-      } catch (err) {
-        document.getElementById('adminContent').innerHTML = `<p style="color:red;">Ошибка: ${err.message}</p>`;
-      }
-    }
-    document.getElementById('adminClose').onclick = () => {
-      document.getElementById('adminPanel').classList.remove('active');
-    };
-    // Auto-refresh admin panel every 10 seconds if open
-    setInterval(() => {
-      if (document.getElementById('adminPanel').classList.contains('active')) {
-        loadAdminData();
-      }
-    }, 10000);
-    // Track on page load
-    trackVisitor();
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      noWrap: true,
-      bounds: [[-90, -180], [90, 180]]
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const { createClient } = supabase;
+  const sb = createClient(
+    'https://diniabtxchgtbcfldwib.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c'
+  );
+
+  // ── MAP ────────────────────────────────────────────────────────────────────
+  const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { noWrap: true });
+  const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { noWrap: true });
+  const map = L.map('map', {
+    zoomControl: false, attributionControl: false,
+    worldCopyJump: false,
+    maxBounds: [[-90,-180],[90,180]], maxBoundsViscosity: 1.0,
+    layers: [osmLayer]
+  }).setView([50.9, 52.0], 7);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  document.getElementById('btnOsm').onclick = () => {
+    map.removeLayer(satelliteLayer); osmLayer.addTo(map);
+    document.getElementById('btnOsm').classList.add('active');
+    document.getElementById('btnSat').classList.remove('active');
+  };
+  document.getElementById('btnSat').onclick = () => {
+    map.removeLayer(osmLayer); satelliteLayer.addTo(map);
+    document.getElementById('btnSat').classList.add('active');
+    document.getElementById('btnOsm').classList.remove('active');
+  };
+
+  // ── SIDEBAR TOGGLE ─────────────────────────────────────────────────────────
+  const sidebar = document.getElementById('sidebar');
+  const tog = document.getElementById('sideToggle');
+  tog.onclick = () => {
+    const collapsed = sidebar.classList.toggle('collapsed');
+    tog.textContent = collapsed ? '›' : '‹';
+    tog.style.left = collapsed ? '0px' : 'var(--w)';
+    setTimeout(() => map.invalidateSize(), 320);
+  };
+
+  // ── ONLINE PRESENCE ────────────────────────────────────────────────────────
+  try {
+    const ch = sb.channel('presence-kazmap-public', {
+      config: { presence: { key: Math.random().toString(36).slice(2) } }
     });
-    const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-      noWrap: true,
-      bounds: [[-90, -180], [90, 180]]
-    });
-    const map = L.map('map', { 
-      zoomControl: false, 
-      attributionControl: false,
-      worldCopyJump: false,
-      maxBounds: [[-90, -180], [90, 180]],
-      maxBoundsViscosity: 1.0,
-      layers: [osmLayer] 
-    }).setView([50.9, 52.0], 7);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    const panel = document.getElementById('panel');
-    const arrow = document.getElementById('toggleArrow');
-    function togglePanel() {
-      const hidden = panel.classList.toggle('hidden');
-      arrow.textContent = hidden ? '>' : '<';
-      arrow.style.left = hidden ? '0px' : '280px';
-      arrow.style.opacity = hidden ? '0' : '1';
-    }
-    arrow.addEventListener('click', togglePanel);
-    arrow.addEventListener('touchstart', e => { e.preventDefault(); togglePanel(); });
-    document.addEventListener('mousemove', e => {
-      if (e.clientX < 10 && panel.classList.contains('hidden')) {
-        arrow.style.opacity = '1';
-      } else if (panel.classList.contains('hidden')) {
-        arrow.style.opacity = '0';
-      }
-    });
-    document.getElementById("mapType").addEventListener("change", e => {
-      map.removeLayer(osmLayer);
-      map.removeLayer(satelliteLayer);
-      if (e.target.value === "satellite") {
-        satelliteLayer.addTo(map);
-        document.body.classList.add('dark');
-      } else {
-        osmLayer.addTo(map);
-        document.body.classList.remove('dark');
-      }
-    });
-    let points = [];
-    let selectMode = false, currentIndex = -1, editIndex = -1;
-    document.getElementById('autoWikiBtn').onclick = async () => {
-      const name = document.getElementById('pointName').value.trim();
-      if (!name) return;
-      const btn = document.getElementById('autoWikiBtn');
-      btn.disabled = true; btn.textContent = '🔍';
-      try {
-        const searches = [name + ' село Казахстан', name + ' город Казахстан', name + ' Казахстан', name];
-        let foundDesc = '';
-        for (const query of searches) {
-          const searchRes = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`);
-          const searchJson = await searchRes.json();
-          const results = searchJson?.query?.search || [];
-          for (const r of results) {
-            const snippetLower = (r.snippet || '').toLowerCase();
-            if (snippetLower.includes('родился') || snippetLower.includes('биография') || /(актёр|певец|политик)/.test(snippetLower)) continue;
-            const pageRes = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`);
-            if (!pageRes.ok) continue;
-            const pageJson = await pageRes.json();
-            const pages = pageJson?.query?.pages || {};
-            const page = Object.values(pages)[0];
-            const text = (page?.extract || '').trim();
-            const textLower = text.toLowerCase();
-            if (text && (textLower.includes('село') || textLower.includes('город') || textLower.includes('район') || textLower.includes('расположен'))) {
-              foundDesc = text; break;
-            }
-          }
-          if (foundDesc) break;
-          await new Promise(r => setTimeout(r, 200));
-        }
-        if (foundDesc) {
-          const shortened = foundDesc.length > 400 ? foundDesc.substring(0, 397) + '...' : foundDesc;
-          document.getElementById('pointDesc').value = shortened;
-        }
-      } catch (err) { console.error('Wiki error:', err); }
-      btn.disabled = false; btn.textContent = '📖';
-    };
-    const listDiv = document.getElementById('pointsList');
-    const searchInput = document.getElementById('searchPoints');
-    const addBtn = document.getElementById('addPoint');
-    const formTitle = document.getElementById('formTitle');
-    function normalizePoint(p) {
-      return { id: p.id, lat: Number(p.lat), lng: Number(p.lng), name: p.name || '', desc: p.desc || '' };
-    }
-    function addMarker(p, i) {
-      const marker = L.marker([p.lat, p.lng]).addTo(map);
-      const title = p.name ? `<b>${p.name}</b>` : `<b>Точка ${i + 1}</b>`;
-      const descLine = p.desc ? `<br><i>${p.desc}</i>` : '';
-      const popup = `${title}${descLine}`;
-      marker.bindPopup(popup);
-      marker.on("click", () => { flyToPoint(i); loadPointToForm(i); });
-      p.marker = marker;
-    }
-    function loadPointToForm(i) {
-      const p = points[i];
-      document.getElementById('pointLat').value = p.lat;
-      document.getElementById('pointLng').value = p.lng;
-      document.getElementById('pointName').value = p.name || '';
-      document.getElementById('pointDesc').value = p.desc || '';
-      editIndex = i;
-      addBtn.textContent = "Сохранить изменения";
-      formTitle.textContent = "Редактировать точку";
-    }
-    function clearForm() {
-      document.getElementById('pointLat').value = "";
-      document.getElementById('pointLng').value = "";
-      document.getElementById('pointName').value = "";
-      document.getElementById('pointDesc').value = "";
-      editIndex = -1;
-      addBtn.textContent = "Добавить точку";
-      formTitle.textContent = "Добавить точку";
-    }
-    // Load points from Supabase
-    async function loadPoints() {
-      try {
-        const { data, error } = await sb.from('markers').select('*');
-        if (error) throw error;
-        points.forEach(p => p.marker && map.removeLayer(p.marker));
-        points = [];
-        data.forEach((p, i) => {
-          const normalized = normalizePoint(p);
-          points.push(normalized);
-          addMarker(normalized, i);
-        });
-        if (points.length > 0) currentIndex = 0;
-        refreshList();
-        document.getElementById('loading').style.display = 'none';
-      } catch (err) {
-        console.error('Error loading points:', err);
-        alert('Ошибка загрузки точек из базы данных');
-        document.getElementById('loading').style.display = 'none';
+    ch.on('presence', { event: 'sync' }, () => {
+      const n = Object.keys(ch.presenceState()).length;
+      document.getElementById('onlineTxt').textContent = n;
+      document.getElementById('onlineCount').textContent = n;
+    }).subscribe(async s => { if (s === 'SUBSCRIBED') await ch.track({ t: Date.now() }); });
+  } catch(e) { document.getElementById('onlineTxt').textContent = '—'; }
+
+  // ── STATE ──────────────────────────────────────────────────────────────────
+  let points = [], selectMode = false, currentIndex = 0;
+  const listDiv    = document.getElementById('pointsList');
+  const searchInput = document.getElementById('searchPoints');
+
+  // ── WIKI HELPERS ──────────────────────────────────────────────────────────
+  async function fetchWiki(name) {
+    const searches = [name+' село Казахстан', name+' город Казахстан', name+' Казахстан', name];
+    for (const q of searches) {
+      const sr = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*&srlimit=5`);
+      const sj = await sr.json();
+      for (const r of sj?.query?.search || []) {
+        const sl = (r.snippet||'').toLowerCase();
+        if (sl.includes('родился')||sl.includes('родилась')||sl.includes('биография')||sl.includes('актёр')||sl.includes('певец')||sl.includes('депутат')) continue;
+        const pr = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`);
+        if (!pr.ok) continue;
+        const pg = Object.values((await pr.json())?.query?.pages||{})[0];
+        const tx = (pg?.extract||'').trim();
+        const tl = tx.toLowerCase();
+        const isPlace = tl.includes('село')||tl.includes('город')||tl.includes('аул')||tl.includes('район')||tl.includes('расположен')||tl.includes('население')||tl.includes('река')||tl.includes('озеро');
+        if (tx.length > 80 && isPlace && !tl.includes('родился') && !tl.includes('родилась')) return tx;
       }
     }
-    let dragSrcIndex = null;
-    function refreshList(filter = '') {
-      listDiv.innerHTML = '';
-      const lowerFilter = filter.toLowerCase();
-      const filteredPoints = points
-        .map((p, i) => ({ ...p, index: i }))
-        .filter(p => {
-          const coords = `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
-          const name = (p.name || '').toLowerCase();
-          return coords.includes(lowerFilter) || name.includes(lowerFilter);
-        });
-      points.forEach(p => {
-        const visible = filteredPoints.some(fp => fp.lat === p.lat && fp.lng === p.lng);
-        if (p.marker) p.marker.setOpacity(visible ? 1 : 0);
+    return null;
+  }
+
+  function cleanWiki(text) {
+    let cl = text.split('\n').join(' ').replace(/[ \t]+/g,' ').trim();
+    cl = cl.replace(/[,.]?\s*Код КАТО[^.]*/gi,'').replace(/[,.]?\s*КАТО[^.]*/gi,'').replace(/  +/g,' ').trim();
+    const sents = cl.match(/[^.!?]+[.!?]+/g) || [cl];
+    let desc = '';
+    for (const s of sents) { if ((desc+s).length > 900) break; desc += s+' '; }
+    return desc.trim() || cl.slice(0, 900);
+  }
+
+  // ── MARKERS ───────────────────────────────────────────────────────────────
+  function addMarker(p, i) {
+    const marker = L.marker([p.lat, p.lng]).addTo(map);
+    const title = p.name || `Точка ${i+1}`;
+    marker.bindPopup(`<b>${title}</b>${p.desc ? '<br><i>'+p.desc+'</i>' : ''}`);
+    marker.on('click', () => flyToPoint(i));
+    p.marker = marker;
+  }
+
+  // ── LOAD ──────────────────────────────────────────────────────────────────
+  async function loadPoints() {
+    try {
+      const { data, error } = await sb.from('markers').select('*');
+      if (error) throw error;
+      points.forEach(p => p.marker && map.removeLayer(p.marker));
+      points = [];
+      data.forEach((p, i) => {
+        const pt = { id: p.id, lat: Number(p.lat), lng: Number(p.lng), name: p.name||'', desc: p.desc||'' };
+        points.push(pt);
+        addMarker(pt, i);
       });
-      filteredPoints.forEach(p => {
+      if (points.length > 0) currentIndex = 0;
+      document.getElementById('ptCount').textContent = points.length;
+      refreshList();
+      document.getElementById('loading').style.display = 'none';
+    } catch(err) {
+      alert('Ошибка загрузки: ' + err.message);
+      document.getElementById('loading').style.display = 'none';
+    }
+  }
+
+  // ── LIST ──────────────────────────────────────────────────────────────────
+  function refreshList(filter = '') {
+    listDiv.innerHTML = '';
+    const lf = filter.toLowerCase();
+    points.map((p,i) => ({...p, index:i}))
+      .filter(p => (p.name||'').toLowerCase().includes(lf))
+      .forEach(p => {
         const div = document.createElement('div');
-        div.className = 'point-item' + (p.index === currentIndex ? ' active' : '');
-        div.draggable = true;
-        div.dataset.index = p.index;
-        const label = p.name ? `<b>${p.name}</b>` : `<b>Точка ${p.index + 1}</b>`;
-        div.innerHTML = `<span class="drag-handle" title="Перетащи для сортировки">⠿</span><div class="point-text">${label}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
-        div.onclick = () => { flyToPoint(p.index); loadPointToForm(p.index); };
-        div.addEventListener('dragstart', e => {
-          dragSrcIndex = p.index;
-          setTimeout(() => div.classList.add('dragging'), 0);
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        div.addEventListener('dragend', () => div.classList.remove('dragging'));
-        div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
-        div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
-        div.addEventListener('drop', e => {
-          e.preventDefault();
-          div.classList.remove('drag-over');
-          if (dragSrcIndex === null || dragSrcIndex === p.index) return;
-          const moved = points.splice(dragSrcIndex, 1)[0];
-          points.splice(p.index, 0, moved);
-          dragSrcIndex = null;
-          refreshList(searchInput.value.trim());
-        });
-        const del = document.createElement('button');
-        del.textContent = '🗑';
-        del.className = 'delete-btn';
-        del.onclick = async e => {
+        div.className = 'pt-item' + (p.index === currentIndex ? ' active' : '');
+        const letter = (p.name||'?')[0].toUpperCase();
+        div.innerHTML = `
+          <div class="pt-avatar">${letter}</div>
+          <div class="pt-body">
+            <div class="pt-name">${p.name || 'Точка '+(p.index+1)}</div>
+            <div class="pt-coord">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
+          </div>`;
+
+        // Wiki button
+        const wb = document.createElement('button');
+        wb.className = 'wiki-btn'; wb.textContent = '📖 Вики';
+        wb.onclick = async e => {
           e.stopPropagation();
-          const pwd = prompt('Введите пароль для удаления:');
-          if (pwd !== '59872461') return alert('Неверный пароль!');
+          if (!p.name) return alert('Нет названия');
+          wb.disabled = true; wb.textContent = '🔍';
           try {
-            const { error } = await sb.from('markers').delete().eq('id', p.id);
-            if (error) throw error;
-            map.removeLayer(p.marker);
-            points.splice(p.index, 1);
+            const text = await fetchWiki(p.name);
+            if (!text) throw new Error('Статья не найдена');
+            wb.textContent = '💾';
+            const desc = cleanWiki(text);
+            const { error } = await sb.from('markers').update({ desc }).eq('id', p.id);
+            if (error) throw new Error(error.message);
+            const ri = points.findIndex(x => x.id === p.id);
+            if (ri !== -1) {
+              points[ri].desc = desc;
+              map.removeLayer(points[ri].marker);
+              addMarker(points[ri], ri);
+            }
             refreshList(searchInput.value.trim());
-          } catch (err) {
-            console.error('Error deleting point:', err);
-            alert('Ошибка удаления точки');
-          }
+          } catch(err) { alert('Вики: ' + err.message); }
+          wb.disabled = false; wb.textContent = '📖 Вики';
         };
-        // 🗺 Quick add to route
-        const rqBtn = document.createElement('button');
-        rqBtn.textContent = '🗺';
-        rqBtn.className = 'route-q-btn';
-        rqBtn.title = 'Добавить в маршрут';
-        rqBtn.onclick = e => {
-          e.stopPropagation();
-          if (!routeOrder.includes(p.index)) routeOrder.push(p.index);
-          if (routeMode) renderRoutePanel();
-        };
-        // 📖 Wiki button
-        const wikiBtn = document.createElement('button');
-        wikiBtn.textContent = '📖';
-        wikiBtn.className = 'wiki-btn';
-        wikiBtn.title = 'Описание из Википедии';
-        wikiBtn.onclick = async e => {
-          e.stopPropagation();
-          if (!p.name) return alert('У точки нет названия для поиска в Вики');
-          wikiBtn.disabled = true; wikiBtn.textContent = '🔍';
-          try {
-            // Step 1: Search Wikipedia — добавляем уточнения что это место
-            const searches = [
-              p.name + ' село Казахстан',
-              p.name + ' город Казахстан',
-              p.name + ' Казахстан',
-              p.name,
-            ];
-            let fullText = '';
-            let foundTitle = '';
-            for (const query of searches) {
-              const searchRes = await fetch(
-                `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
-              );
-              const searchJson = await searchRes.json();
-              const results = searchJson?.query?.search || [];
-              for (const r of results) {
-                // Пропускаем статьи которые явно про людей
-                const titleLower = r.title.toLowerCase();
-                const snippetLower = (r.snippet || '').toLowerCase();
-                const isPerson =
-                  snippetLower.includes('родился') ||
-                  snippetLower.includes('советский') && snippetLower.includes('актёр') ||
-                  snippetLower.includes('биография') ||
-                  snippetLower.includes('казахский политик') ||
-                  snippetLower.includes('депутат') ||
-                  /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
-                if (isPerson) continue;
-                // Получаем БОЛЬШЕ текста страницы (не только intro, а первую секцию целиком)
-                const pageRes = await fetch(
-                  `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
-                );
-                if (!pageRes.ok) continue;
-                const pageJson = await pageRes.json();
-                const pages = pageJson?.query?.pages || {};
-                const page = Object.values(pages)[0];
-                const text = (page?.extract || '').trim();
-                // Проверяем что текст про место, а не человека
-                const textLower = text.toLowerCase();
-                const isPlaceLike =
-                  textLower.includes('населённый пункт') ||
-                  textLower.includes('село') ||
-                  textLower.includes('город') ||
-                  textLower.includes('аул') ||
-                  textLower.includes('район') ||
-                  textLower.includes('область') ||
-                  textLower.includes('река') ||
-                  textLower.includes('озеро') ||
-                  textLower.includes('расположен') ||
-                  textLower.includes('находится') ||
-                  textLower.includes('население');
-                const isPersonText =
-                  textLower.includes('родился') ||
-                  textLower.includes('родилась') ||
-                  (textLower.includes('советский') && textLower.includes('актёр'));
-                if (text.length > 80 && isPlaceLike && !isPersonText) {
-                  fullText = text;
-                  foundTitle = r.title;
-                  break;
-                }
-              }
-              if (fullText) break;
-            }
-            if (!fullText) throw new Error('Статья о месте не найдена');
-            // Step 2: Умное сжатие - убираем повторы и берём РАЗНУЮ инфу
-            wikiBtn.textContent = '✍️';
-            // Чистим текст от технических данных
-            let cleaned = fullText.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
-            cleaned = cleaned
-              .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*КАТО[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*почтовый индекс[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*телефонный код[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*[\d]{6,}[^.]*\.?/gi, '')
-              .replace(/\([^)]*население[^)]*\)/gi, '')
-              .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
-              .replace(/  +/g, ' ').trim();
-            // Разбиваем на предложения
-            const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-            // УБИРАЕМ ДУБЛИКАТЫ и короткие предложения
-            const uniqueSentences = [];
-            const seen = new Set();
-            for (const s of sentences) {
-              const trimmed = s.trim();
-              const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
-              // Игнорируем дубликаты и слишком короткие (< 30 символов)
-              if (!seen.has(normalized) && trimmed.length >= 30) {
-                seen.add(normalized);
-                uniqueSentences.push(trimmed);
-              }
-            }
-            // УМНОЕ СЖАТИЕ: берём 2-4 разнообразных предложения
-            // Приоритет: первое (определение) + предложения с разной инфой
-            let desc = '';
-            let sentCount = 0;
-            const maxLength = 400;
-            for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
-              const s = uniqueSentences[i];
-              // Проверяем не превысим ли лимит
-              if ((desc + s).length > maxLength) {
-                // Если это первое предложение и оно слишком длинное - обрезаем
-                if (sentCount === 0 && s.length > 300) {
-                  desc = s.slice(0, 297) + '...';
-                  break;
-                }
-                // Иначе прекращаем добавлять
-                break;
-              }
-              desc += s + ' ';
-              sentCount++;
-              // Минимум 2 предложения, но если уже > 200 символов и есть 2+ предложения - можно остановиться
-              if (sentCount >= 2 && desc.length >= 200 && desc.length <= 350) {
-                // Проверяем, есть ли ещё место для короткого предложения
-                const nextSent = uniqueSentences[i + 1];
-                if (nextSent && (desc + nextSent).length <= maxLength) {
-                  continue; // добавим ещё одно
-                } else {
-                  break; // хватит
-                }
-              }
-            }
-            desc = desc.trim();
-            // На всякий случай обрезаем если вышло больше 400
-            if (desc.length > 400) {
-              desc = desc.slice(0, 397) + '...';
-            }
-            if (!desc) desc = cleaned.slice(0, 300);
-            // Сразу сохраняем в Supabase — не ждём нажатия кнопки
-            wikiBtn.textContent = '💾';
-            const pt = points[p.index];
-            const { error } = await sb.from('markers').update({ desc: desc }).eq('id', pt.id);
-            if (error) throw new Error('Ошибка сохранения: ' + error.message);
-            // Обновляем в памяти и маркере
-            pt.desc = desc;
-            map.removeLayer(pt.marker);
-            addMarker(pt, p.index);
-            // Показываем в форме
-            loadPointToForm(p.index);
-            document.getElementById('pointDesc').value = desc;
-            panel.scrollTop = 0;
-          } catch(err) {
-            alert('Ошибка Вики: ' + err.message);
-          }
-          wikiBtn.disabled = false; wikiBtn.textContent = '📖';
-        };
-        div.appendChild(rqBtn);
-        div.appendChild(wikiBtn);
-        div.appendChild(del);
+
+        div.appendChild(wb);
+        div.onclick = () => flyToPoint(p.index);
         listDiv.appendChild(div);
       });
-    }
-    async function addOrEditPoint(lat, lng, name = '', desc = '') {
-      try {
-        if (editIndex >= 0) {
-          const existing = points[editIndex];
-          const { error } = await sb.from('markers').update({ lat, lng, name, desc }).eq('id', existing.id);
-          if (error) {
-            console.error('Supabase update error:', error);
-            throw error;
-          }
-          map.removeLayer(existing.marker);
-          existing.lat = lat;
-          existing.lng = lng;
-          existing.name = name;
-          existing.desc = desc;
-          addMarker(existing, editIndex);
-          refreshList(searchInput.value.trim());
-          clearForm();
-        } else {
-          const { data, error } = await sb.from('markers').insert([{ lat, lng, name, desc }]).select();
-          if (error) {
-            console.error('Supabase insert error:', error);
-            alert(`Ошибка Supabase: ${error.message}\nКод: ${error.code}\nДетали: ${error.details}`);
-            throw error;
-          }
-          const newPoint = normalizePoint(data[0]);
-          points.push(newPoint);
-          addMarker(newPoint, points.length - 1);
-          refreshList(searchInput.value.trim());
-        }
-      } catch (err) {
-        console.error('Full error object:', err);
-        if (!err.message?.includes('Supabase:')) {
-          alert(`Ошибка сохранения точки: ${err.message || 'Неизвестная ошибка'}`);
-        }
-      }
-    }
-    function flyToPoint(realIndex) {
-      if (points.length === 0) return;
-      // clamp with wrap
-      if (realIndex < 0) realIndex = points.length - 1;
-      if (realIndex >= points.length) realIndex = 0;
-      const p = points[realIndex];
-      if (!p) return;
-      currentIndex = realIndex;
-      map.flyTo([p.lat, p.lng], 14, { animate: true, duration: 1.5 });
-      setTimeout(() => p.marker && p.marker.openPopup(), 900);
-      refreshList(searchInput.value.trim());
-    }
-    // prevBtn/nextBtn handled in route mode section
-    document.getElementById('migrateFromLocal').onclick = async () => {
-      try {
-        const localData = localStorage.getItem('savedPoints');
-        if (!localData) return alert('В localStorage нет сохранённых точек!');
-        const oldPoints = JSON.parse(localData);
-        if (!Array.isArray(oldPoints) || oldPoints.length === 0) {
-          return alert('В localStorage нет точек для переноса!');
-        }
-        let count = 0;
-        for (let p of oldPoints) {
-          if (!isNaN(p.lat) && !isNaN(p.lng)) {
-            const { error } = await sb.from('markers').insert([{ lat: Number(p.lat), lng: Number(p.lng) }]);
-            if (!error) count++;
-          }
-        }
-        alert(`Перенесено ${count} точек в Supabase!`);
-        await loadPoints();
-      } catch (err) {
-        console.error('Migration error:', err);
-        alert('Ошибка при переносе точек');
-      }
-    };
-    addBtn.onclick = () => {
-      const lat = parseFloat(document.getElementById('pointLat').value);
-      const lng = parseFloat(document.getElementById('pointLng').value);
-      const name = document.getElementById('pointName').value.trim();
-      const desc = document.getElementById('pointDesc').value.trim();
-      if (isNaN(lat) || isNaN(lng)) return alert("Введите координаты!");
-      addOrEditPoint(lat, lng, name, desc);
-    };
-    document.getElementById('bulkWiki').onclick = async () => {
-      const pwd = prompt('Введите пароль для массового добавления описаний:');
-      if (pwd !== '59872461') return alert('Неверный пароль!');
-      if (!confirm('Добавить описания из Википедии всем точкам с названиями?\n\nЭто может занять несколько минут.')) return;
-      const pointsWithNames = points.filter(p => p.name && p.name.trim());
-      if (pointsWithNames.length === 0) return alert('Нет точек с названиями!');
-      let processed = 0;
-      let success = 0;
-      let failed = 0;
-      for (const pt of pointsWithNames) {
-        processed++;
-        console.log(`[${processed}/${pointsWithNames.length}] Обработка: ${pt.name}`);
-        // Пропускаем если уже есть описание
-        if (pt.desc && pt.desc.trim()) {
-          console.log(`  ⏭ Уже есть описание`);
-          continue;
-        }
-        try {
-          const searches = [
-            pt.name + ' село Казахстан',
-            pt.name + ' город Казахстан',
-            pt.name + ' Казахстан',
-            pt.name,
-          ];
-          let foundDesc = '';
-          for (const query of searches) {
-            const searchRes = await fetch(
-              `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
-            );
-            const searchJson = await searchRes.json();
-            const results = searchJson?.query?.search || [];
-            for (const r of results) {
-              const snippetLower = (r.snippet || '').toLowerCase();
-              const isPerson =
-                snippetLower.includes('родился') ||
-                snippetLower.includes('советский') && snippetLower.includes('актёр') ||
-                snippetLower.includes('биография') ||
-                snippetLower.includes('казахский политик') ||
-                snippetLower.includes('депутат') ||
-                /(актёр|певец|политик|спортсмен|учёный|писатель)/.test(snippetLower);
-              if (isPerson) continue;
-              const pageRes = await fetch(
-                `https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exsectionformat=plain&explaintext=true&titles=${encodeURIComponent(r.title)}&format=json&origin=*`
-              );
-              if (!pageRes.ok) continue;
-              const pageJson = await pageRes.json();
-              const pages = pageJson?.query?.pages || {};
-              const page = Object.values(pages)[0];
-              const text = (page?.extract || '').trim();
-              const textLower = text.toLowerCase();
-              const isPlaceLike =
-                textLower.includes('населённый пункт') ||
-                textLower.includes('село') ||
-                textLower.includes('город') ||
-                textLower.includes('аул') ||
-                textLower.includes('район') ||
-                textLower.includes('посёлок') ||
-                textLower.includes('область') ||
-                textLower.includes('река') ||
-                textLower.includes('озеро') ||
-                textLower.includes('расположен');
-              if (text && isPlaceLike) {
-                foundDesc = text;
-                break;
-              }
-            }
-            if (foundDesc) break;
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-          if (foundDesc) {
-            // УМНОЕ СЖАТИЕ с удалением дубликатов и выбором разнообразной инфы
-            let cleaned = foundDesc.split('\n').join(' ').replace(/[ \t]+/g, ' ').trim();
-            cleaned = cleaned
-              .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*КАТО[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*почтовый индекс[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*телефонный код[^.]*\.?/gi, '')
-              .replace(/[,.]?\s*[\d]{6,}[^.]*\.?/gi, '')
-              .replace(/\([^)]*население[^)]*\)/gi, '')
-              .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
-              .replace(/  +/g, ' ').trim();
-            const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-            // УБИРАЕМ ДУБЛИКАТЫ
-            const uniqueSentences = [];
-            const seen = new Set();
-            for (const s of sentences) {
-              const trimmed = s.trim();
-              const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
-              if (!seen.has(normalized) && trimmed.length >= 30) {
-                seen.add(normalized);
-                uniqueSentences.push(trimmed);
-              }
-            }
-            let shortDesc = '';
-            let sentCount = 0;
-            const maxLength = 400;
-            for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
-              const s = uniqueSentences[i];
-              if ((shortDesc + s).length > maxLength) {
-                if (sentCount === 0 && s.length > 300) {
-                  shortDesc = s.slice(0, 297) + '...';
-                  break;
-                }
-                break;
-              }
-              shortDesc += s + ' ';
-              sentCount++;
-              if (sentCount >= 2 && shortDesc.length >= 200 && shortDesc.length <= 350) {
-                const nextSent = uniqueSentences[i + 1];
-                if (nextSent && (shortDesc + nextSent).length <= maxLength) {
-                  continue;
-                } else {
-                  break;
-                }
-              }
-            }
-            shortDesc = shortDesc.trim();
-            if (shortDesc.length > 400) {
-              shortDesc = shortDesc.slice(0, 397) + '...';
-            }
-            if (!shortDesc) shortDesc = cleaned.slice(0, 300);
-            // Обновляем в Supabase
-            const { error } = await sb.from('markers').update({ desc: shortDesc }).eq('id', pt.id);
-            if (error) throw new Error('Ошибка сохранения: ' + error.message);
-            // Обновляем в памяти
-            pt.desc = shortDesc;
-            map.removeLayer(pt.marker);
-            const idx = points.indexOf(pt);
-            addMarker(pt, idx);
-            success++;
-            console.log(`  ✅ Добавлено описание (${shortDesc.length} символов)`);
-          } else {
-            failed++;
-            console.log(`  ❌ Не найдено описание`);
-          }
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (err) {
-          failed++;
-          console.error(`  ❌ Ошибка: ${err.message}`);
-        }
-      }
-      refreshList();
-      alert(`Готово!\n\nОбработано: ${processed}\nУспешно: ${success}\nНе найдено: ${failed}`);
-    };
-    document.getElementById('deleteAll').onclick = async () => {
-      const pwd = prompt('Введите пароль для удаления всех точек:');
-      if (pwd !== '59872461') return alert('Неверный пароль!');
-      if (!confirm("Удалить все точки?")) return;
-      try {
-        const { error } = await sb.from('markers').delete().neq('id', 0);
-        if (error) throw error;
-        points.forEach(p => p.marker && map.removeLayer(p.marker));
-        points = [];
-        refreshList();
-      } catch (err) {
-        console.error('Error deleting all points:', err);
-        alert('Ошибка удаления точек');
-      }
-    };
-    document.getElementById('saveJSON').onclick = () => {
-      const data = JSON.stringify(points.map(p => ({ name: p.name, desc: p.desc, lat: p.lat, lng: p.lng })), null, 2);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'карта_ZKO.json'; a.click(); URL.revokeObjectURL(url);
-    };
-    document.getElementById('importJSON').onchange = async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (prompt('Пароль для импорта:') !== '59872461') { e.target.value = ''; return alert('Неверный пароль!'); }
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        if (!Array.isArray(data)) return alert("Неверный формат JSON!");
-        let count = 0;
-        for (let p of data) {
-          if (!isNaN(p.lat) && !isNaN(p.lng)) {
-            await addOrEditPoint(p.lat, p.lng, p.name || '', p.desc || '');
-            count++;
-            // Небольшая задержка чтобы не перегрузить Supabase
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        }
-        alert(`Импорт завершён! Добавлено точек: ${count}`);
-      } catch (err) {
-        console.error('Import error:', err);
-        alert("Ошибка при чтении JSON!");
-      }
-    };
-    document.getElementById('importKml').onchange = async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (prompt('Пароль для импорта:') !== '59872461') { e.target.value = ''; return alert('Неверный пароль!'); }
-      try {
-        let kmlText = '';
-        // Check if it's KMZ (zip file) or plain KML
-        if (file.name.endsWith('.kmz')) {
-          // KMZ - extract KML from zip
-          const zip = await JSZip.loadAsync(file);
-          const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
-          if (!kmlFile) return alert("В KMZ нет KML-файла!");
-          kmlText = await zip.files[kmlFile].async('text');
-        } else {
-          // Plain KML - read directly
-          kmlText = await file.text();
-        }
-        // Parse KML
-        const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
-        const placemarks = xml.getElementsByTagName('Placemark');
-        let count = 0;
-        for (let p of placemarks) {
-          const name = p.getElementsByTagName('name')[0]?.textContent || '';
-          const desc = p.getElementsByTagName('description')[0]?.textContent || '';
-          const coords = p.getElementsByTagName('coordinates')[0]?.textContent?.trim();
-          if (!coords) continue;
-          const [lng, lat] = coords.split(',').map(Number);
-          if (isNaN(lat) || isNaN(lng)) continue;
-          await addOrEditPoint(lat, lng, name, desc);
-          count++;
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        alert(`Импорт завершён! Добавлено точек: ${count}`);
-      } catch (err) {
-        console.error('KML/KMZ import error:', err);
-        alert("Ошибка при чтении KML/KMZ файла!");
-      }
-    };
-    document.getElementById('selectModeBtn').onclick = () => {
-      selectMode = !selectMode;
-      document.getElementById('selectModeBtn').textContent = selectMode ? 'Отменить выбор' : 'Выбрать на карте';
-      map.getContainer().style.cursor = selectMode ? 'crosshair' : '';
-    };
-    map.on('click', e => {
-      if (selectMode) {
-        document.getElementById('pointLat').value = e.latlng.lat.toFixed(6);
-        document.getElementById('pointLng').value = e.latlng.lng.toFixed(6);
-        selectMode = false;
-        document.getElementById('selectModeBtn').textContent = 'Выбрать на карте';
-        map.getContainer().style.cursor = '';
-      }
-    });
-    searchInput.oninput = e => refreshList(e.target.value.trim());
-    // ── ROUTE MODE ────────────────────────────────────────────────────────────
-    let routeOrder = []; // array of point indices defining navigation order
-    let routePos = 0;    // current position in routeOrder
-    let routeMode = false;
-    const routeBtn = document.getElementById('routeBtn');
-    const routePanel = document.getElementById('routePanel');
-    const mainPanel = document.getElementById('mainPanel');
-    routeBtn.onclick = () => {
-      routeMode = !routeMode;
-      routeBtn.classList.toggle('active', routeMode);
-      routeBtn.textContent = routeMode ? '✕ Закрыть маршрут' : '🗺 Настроить маршрут ←→';
-      routePanel.classList.toggle('active', routeMode);
-      mainPanel.classList.toggle('route-hidden', routeMode);
-      if (routeMode) renderRoutePanel();
-    };
-    document.getElementById('routeClearBtn').onclick = () => {
-      routeOrder = []; routePos = 0; renderRoutePanel();
-    };
-    document.getElementById('routeSearch').oninput = e => renderRouteAddList(e.target.value.trim());
-    function renderRoutePanel() {
-      renderRouteList();
-      renderRouteAddList(document.getElementById('routeSearch').value.trim());
-    }
-    let routeDragSrc = null;
-    function renderRouteList() {
-      const el = document.getElementById('routeList');
-      el.innerHTML = '';
-      if (routeOrder.length === 0) {
-        el.innerHTML = '<p style="font-size:12px;color:#888;text-align:center;">Маршрут пуст</p>';
-        return;
-      }
-      routeOrder.forEach((pi, ri) => {
-        const p = points[pi];
-        if (!p) return;
-        const div = document.createElement('div');
-        div.className = 'route-item';
-        div.draggable = true;
-        div.innerHTML = `<span class="route-num">${ri+1}</span>
-          <div class="point-text" style="flex:1;min-width:0;margin:0 4px;">${p.name ? `<b>${p.name}</b>` : `<b>Точка ${pi+1}</b>`}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>
-          <button class="route-del" title="Убрать из маршрута">✕</button>`;
-        div.querySelector('.route-del').onclick = () => {
-          routeOrder.splice(ri, 1);
-          if (routePos >= routeOrder.length) routePos = Math.max(0, routeOrder.length - 1);
-          renderRouteList();
-        };
-        div.addEventListener('dragstart', e => { routeDragSrc = ri; setTimeout(() => div.classList.add('dragging'), 0); });
-        div.addEventListener('dragend', () => div.classList.remove('dragging'));
-        div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
-        div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
-        div.addEventListener('drop', e => {
-          e.preventDefault(); div.classList.remove('drag-over');
-          if (routeDragSrc === null || routeDragSrc === ri) return;
-          const moved = routeOrder.splice(routeDragSrc, 1)[0];
-          routeOrder.splice(ri, 0, moved);
-          routeDragSrc = null;
-          renderRouteList();
-        });
-        el.appendChild(div);
-      });
-    }
-    function renderRouteAddList(filter = '') {
-      const el = document.getElementById('routeAddList');
-      el.innerHTML = '';
-      const lf = filter.toLowerCase();
-      points.forEach((p, i) => {
-        if (routeOrder.includes(i)) return; // already in route
-        const name = p.name || `Точка ${i+1}`;
-        if (lf && !name.toLowerCase().includes(lf) && !`${p.lat.toFixed(4)},${p.lng.toFixed(4)}`.includes(lf)) return;
-        const div = document.createElement('div');
-        div.className = 'route-item';
-        div.style.cursor = 'pointer';
-        div.innerHTML = `<span style="font-size:16px;flex-shrink:0">＋</span>
-          <div class="point-text" style="flex:1;min-width:0;margin-left:4px;">${p.name ? `<b>${p.name}</b>` : `<b>Точка ${i+1}</b>`}<br><small>${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</small></div>`;
-        div.onclick = () => { routeOrder.push(i); renderRoutePanel(); };
-        el.appendChild(div);
-      });
-      if (el.innerHTML === '') el.innerHTML = '<p style="font-size:12px;color:#888;text-align:center;">Все точки добавлены</p>';
-    }
-    // Override prev/next to use routeOrder when active
-    document.getElementById('prevBtn').onclick = () => {
-      if (routeMode && routeOrder.length > 0) {
-        routePos = routePos <= 0 ? routeOrder.length - 1 : routePos - 1;
-        flyToPoint(routeOrder[routePos]);
-      } else {
-        if (points.length === 0) return;
-        const newIdx = currentIndex <= 0 ? points.length - 1 : currentIndex - 1;
-        flyToPoint(newIdx);
-      }
-    };
-    document.getElementById('nextBtn').onclick = () => {
-      if (routeMode && routeOrder.length > 0) {
-        routePos = routePos >= routeOrder.length - 1 ? 0 : routePos + 1;
-        flyToPoint(routeOrder[routePos]);
-      } else {
-        if (points.length === 0) return;
-        const newIdx = currentIndex >= points.length - 1 ? 0 : currentIndex + 1;
-        flyToPoint(newIdx);
-      }
-    };
-    // ── END ROUTE MODE ────────────────────────────────────────────────────────
-    // ── Online presence ──────────────────────────────────────────────────────
-    (function() {
-      try {
-        const presenceKey = Math.random().toString(36).slice(2);
-        const ch = sb.channel('online-presence', { config: { presence: { key: presenceKey } } });
-        ch.on('presence', { event: 'sync' }, () => {
-          const n = Object.keys(ch.presenceState()).length;
-          document.getElementById('onlineCount').textContent = n;
-        }).subscribe(async status => {
-          if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() });
-        });
-      } catch(e) {
-        document.getElementById('onlineCount').textContent = '—';
-      }
-    })();
-    // Load points on startup
-    loadPoints();
-  </script>
+  }
+
+  // ── NAVIGATION ────────────────────────────────────────────────────────────
+  function flyToPoint(index) {
+    if (!points.length) return;
+    if (index < 0) index = points.length - 1;
+    if (index >= points.length) index = 0;
+    const p = points[index];
+    currentIndex = index;
+    map.flyTo([p.lat, p.lng], 14, { animate: true, duration: 1.5 });
+    setTimeout(() => p.marker && p.marker.openPopup(), 900);
+    refreshList(searchInput.value.trim());
+  }
+
+  document.getElementById('prevBtn').onclick = () => flyToPoint(currentIndex - 1);
+  document.getElementById('nextBtn').onclick = () => flyToPoint(currentIndex + 1);
+  searchInput.oninput = e => refreshList(e.target.value.trim());
+
+  // ── ADD FORM ──────────────────────────────────────────────────────────────
+  document.getElementById('addToggle').onclick = () => {
+    const f = document.getElementById('addForm');
+    f.classList.toggle('open');
+    document.getElementById('addToggle').textContent =
+      f.classList.contains('open') ? '✕ Закрыть' : '+ Добавить точку';
+  };
+
+  document.getElementById('addPoint').onclick = async () => {
+    const lat  = parseFloat(document.getElementById('pointLat').value);
+    const lng  = parseFloat(document.getElementById('pointLng').value);
+    const name = document.getElementById('pointName').value.trim();
+    const desc = document.getElementById('pointDesc').value.trim();
+    if (isNaN(lat) || isNaN(lng)) return alert('Введите координаты!');
+    try {
+      const { data, error } = await sb.from('markers').insert([{ lat, lng, name, desc }]).select();
+      if (error) throw error;
+      await loadPoints();
+      ['pointLat','pointLng','pointName','pointDesc'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('addForm').classList.remove('open');
+      document.getElementById('addToggle').textContent = '+ Добавить точку';
+    } catch(err) { alert('Ошибка: ' + err.message); }
+  };
+
+  document.getElementById('selectModeBtn').onclick = () => {
+    selectMode = !selectMode;
+    document.getElementById('selectModeBtn').textContent = selectMode ? '✕ Отмена' : '📍 На карте';
+    map.getContainer().style.cursor = selectMode ? 'crosshair' : '';
+  };
+  map.on('click', e => {
+    if (!selectMode) return;
+    document.getElementById('pointLat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('pointLng').value = e.latlng.lng.toFixed(6);
+    selectMode = false;
+    document.getElementById('selectModeBtn').textContent = '📍 На карте';
+    map.getContainer().style.cursor = '';
+  });
+
+  // Wiki autofill for new point form
+  document.getElementById('autoWikiBtn').onclick = async () => {
+    const name = document.getElementById('pointName').value.trim();
+    if (!name) return alert('Сначала введи название');
+    const btn = document.getElementById('autoWikiBtn');
+    btn.disabled = true; btn.textContent = '🔍';
+    try {
+      const text = await fetchWiki(name);
+      if (!text) throw new Error('Не найдено');
+      document.getElementById('pointDesc').value = cleanWiki(text);
+    } catch(e) { alert('Вики: ' + e.message); }
+    btn.disabled = false; btn.textContent = '📖';
+  };
+
+  loadPoints();
+</script>
 </body>
 </html>
