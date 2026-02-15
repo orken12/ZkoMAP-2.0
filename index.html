@@ -120,7 +120,7 @@
     /* ── ADD SECTION ── */
     #addSection {
       padding: 10px 12px 14px;
-      border-top: 1px solid var(--border); flex-shrink: 0;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     #addToggle {
       width: 100%; border: none; border-radius: 10px;
@@ -358,10 +358,6 @@
       <input id="searchPoints" placeholder="Поиск по названию..."/>
     </div>
 
-    <div id="listWrap">
-      <div id="pointsList"></div>
-    </div>
-
     <div id="addSection">
       <button id="addToggle">+ Добавить точку</button>
       <div id="addForm">
@@ -379,6 +375,10 @@
           <button class="btn-add" id="addPoint">Добавить</button>
         </div>
       </div>
+    </div>
+
+    <div id="listWrap">
+      <div id="pointsList"></div>
     </div>
   </div>
 
