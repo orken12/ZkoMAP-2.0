@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ZkoMap v2.5.0</title>
+  <title>ZkoMap v2.6.0</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -230,10 +230,10 @@
       font-family: 'Golos Text', sans-serif !important;
       backdrop-filter: blur(16px) !important;
     }
-    .leaflet-popup-tip { background: rgba(17,20,28,.96) !important; }
-    .leaflet-popup-content { margin: 12px 14px !important; font-size: 13px !important; line-height: 1.5 !important; }
-    .leaflet-popup-content b { font-family: 'Unbounded', sans-serif; font-size: 12px; color: var(--accent); display: block; margin-bottom: 4px; }
-    .leaflet-popup-content i { color: #9ca3af; font-style: normal; font-size: 12px; }
+    .leaflet-popup-tip { background: rgba(17,20,28,.95) !important; }
+    .leaflet-popup-content { margin: 12px 14px !important; font-size: 13px !important; }
+    .leaflet-popup-content b { font-family: 'Unbounded', sans-serif; font-size: 13px; color: var(--accent); }
+    .leaflet-popup-content small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
     /* ── LOADING ── */
     #loading {
@@ -248,6 +248,71 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin-lbl { font-family: 'Unbounded', sans-serif; font-size: 11px; color: var(--muted); letter-spacing: .6px; }
+
+    /* ── MOBILE RESPONSIVE ── */
+    @media (max-width: 768px) {
+      :root { --w: 280px; }
+      
+      #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        max-height: 100vh;
+        transform: translateX(-100%);
+        margin-left: 0;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.5);
+      }
+      #sidebar.collapsed { transform: translateX(0); margin-left: 0; }
+      
+      #header { padding: 12px 16px; }
+      .brand { font-size: 18px; }
+      .toggle { width: 38px; height: 38px; }
+      
+      #mapTypeWrap { padding: 10px 16px; }
+      #searchWrap { padding: 8px 16px; }
+      #searchWrap input { font-size: 14px; padding: 10px 12px 10px 36px; }
+      
+      #listWrap { padding: 6px 12px 12px; }
+      .pt-item { padding: 10px 12px; }
+      .pt-name { font-size: 12px; }
+      .pt-coord { font-size: 10px; }
+      
+      #addSection { padding: 12px 16px; }
+      #addToggle { font-size: 13px; padding: 10px; }
+      #addForm { padding: 12px 0 0; }
+      .f-input { font-size: 13px; padding: 9px 11px; }
+      #pointDesc { font-size: 13px; }
+      .wiki-auto-btn { padding: 9px; font-size: 16px; }
+      .btn-map, .btn-add { font-size: 13px; padding: 10px; }
+      
+      #navControls {
+        bottom: 16px;
+        right: 16px;
+        flex-direction: column-reverse;
+        gap: 10px;
+      }
+      .nav-btn { width: 48px; height: 48px; font-size: 20px; }
+      
+      .leaflet-control-zoom {
+        right: 16px !important;
+        bottom: 180px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      :root { --w: 100vw; }
+      
+      #sidebar {
+        width: 100vw;
+      }
+      
+      .nav-btn { width: 44px; height: 44px; font-size: 18px; }
+      
+      .leaflet-control-zoom {
+        bottom: 160px !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -261,7 +326,7 @@
   
   <div id="sidebar">
     <div id="sHead">
-      <div class="brand">KazMap</div>
+      <div class="brand">ZkoMap</div>
       <div class="brand-sub">Интерактивная карта Казахстана</div>
       <div id="onlineRow">
         <span class="pulse-dot"></span>
@@ -404,19 +469,76 @@
   }
 
   function cleanWiki(text) {
+    // Чистим текст от технических данных
     let cl = text.split('\n').join(' ').replace(/[ \t]+/g,' ').trim();
-    cl = cl.replace(/[,.]?\s*Код КАТО[^.]*/gi,'').replace(/[,.]?\s*КАТО[^.]*/gi,'').replace(/  +/g,' ').trim();
-    const sents = cl.match(/[^.!?]+[.!?]+/g) || [cl];
+    cl = cl
+      .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
+      .replace(/[,.]?\s*КАТО[^.]*\.?/gi, '')
+      .replace(/[,.]?\s*почтовый индекс[^.]*\.?/gi, '')
+      .replace(/[,.]?\s*телефонный код[^.]*\.?/gi, '')
+      .replace(/[,.]?\s*[\d]{6,}[^.]*\.?/gi, '')
+      .replace(/\([^)]*население[^)]*\)/gi, '')
+      .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
+      .replace(/  +/g, ' ').trim();
+    
+    // Разбиваем на предложения
+    const sentences = cl.match(/[^.!?]+[.!?]+/g) || [cl];
+    
+    // УБИРАЕМ ДУБЛИКАТЫ и короткие предложения
+    const uniqueSentences = [];
+    const seen = new Set();
+    for (const s of sentences) {
+      const trimmed = s.trim();
+      const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
+      if (!seen.has(normalized) && trimmed.length >= 30) {
+        seen.add(normalized);
+        uniqueSentences.push(trimmed);
+      }
+    }
+    
+    // УМНОЕ СЖАТИЕ: берём 2-4 разнообразных предложения
     let desc = '';
-    for (const s of sents) { if ((desc+s).length > 900) break; desc += s+' '; }
-    return desc.trim() || cl.slice(0, 900);
+    let sentCount = 0;
+    const maxLength = 400;
+    
+    for (let i = 0; i < uniqueSentences.length && sentCount < 4; i++) {
+      const s = uniqueSentences[i];
+      
+      if ((desc + s).length > maxLength) {
+        if (sentCount === 0 && s.length > 300) {
+          desc = s.slice(0, 297) + '...';
+          break;
+        }
+        break;
+      }
+      
+      desc += s + ' ';
+      sentCount++;
+      
+      if (sentCount >= 2 && desc.length >= 200 && desc.length <= 350) {
+        const nextSent = uniqueSentences[i + 1];
+        if (nextSent && (desc + nextSent).length <= maxLength) {
+          continue;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    desc = desc.trim();
+    
+    if (desc.length > 400) {
+      desc = desc.slice(0, 397) + '...';
+    }
+    
+    return desc || cl.slice(0, 300);
   }
 
   // ── MARKERS ───────────────────────────────────────────────────────────────
   function addMarker(p, i) {
     const marker = L.marker([p.lat, p.lng]).addTo(map);
     const title = p.name || `Точка ${i+1}`;
-    marker.bindPopup(`<b>${title}</b>${p.desc ? '<br><i>'+p.desc+'</i>' : ''}`);
+    marker.bindPopup(`<b>${title}</b>${p.desc ? '<br><small>'+p.desc+'</small>' : ''}`);
     marker.on('click', () => flyToPoint(i));
     p.marker = marker;
   }
