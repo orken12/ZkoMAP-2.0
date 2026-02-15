@@ -251,66 +251,75 @@
 
     /* ── MOBILE RESPONSIVE ── */
     @media (max-width: 768px) {
-      :root { --w: 280px; }
+      :root { --w: 260px; }
       
       #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
+        width: 260px;
         height: 100vh;
         max-height: 100vh;
-        transform: translateX(-100%);
-        margin-left: 0;
-        box-shadow: 2px 0 12px rgba(0,0,0,0.5);
       }
-      #sidebar.collapsed { transform: translateX(0); margin-left: 0; }
       
-      #header { padding: 12px 16px; }
-      .brand { font-size: 18px; }
-      .toggle { width: 38px; height: 38px; }
+      #header { padding: 10px 14px; }
+      .brand { font-size: 16px; }
+      .toggle { width: 36px; height: 36px; font-size: 20px; }
       
-      #mapTypeWrap { padding: 10px 16px; }
-      #searchWrap { padding: 8px 16px; }
-      #searchWrap input { font-size: 14px; padding: 10px 12px 10px 36px; }
+      #mapTypeWrap { padding: 8px 14px; }
+      #searchWrap { padding: 6px 14px; }
+      #searchWrap input { font-size: 13px; padding: 9px 10px 9px 32px; }
       
-      #listWrap { padding: 6px 12px 12px; }
-      .pt-item { padding: 10px 12px; }
-      .pt-name { font-size: 12px; }
+      #listWrap { padding: 4px 10px 10px; }
+      .pt-item { padding: 8px 10px; margin-bottom: 6px; }
+      .pt-name { font-size: 11px; }
       .pt-coord { font-size: 10px; }
       
-      #addSection { padding: 12px 16px; }
-      #addToggle { font-size: 13px; padding: 10px; }
-      #addForm { padding: 12px 0 0; }
-      .f-input { font-size: 13px; padding: 9px 11px; }
-      #pointDesc { font-size: 13px; }
-      .wiki-auto-btn { padding: 9px; font-size: 16px; }
-      .btn-map, .btn-add { font-size: 13px; padding: 10px; }
+      #addSection { padding: 10px 14px; }
+      #addToggle { font-size: 12px; padding: 8px; }
+      #addForm { padding: 10px 0 0; }
+      .f-input { font-size: 12px; padding: 8px 10px; }
+      #pointDesc { font-size: 12px; }
+      .wiki-auto-btn { padding: 8px; font-size: 16px; }
+      .btn-map, .btn-add { font-size: 12px; padding: 8px; }
       
       #navControls {
         bottom: 16px;
         right: 16px;
         flex-direction: column-reverse;
-        gap: 10px;
+        gap: 8px;
       }
-      .nav-btn { width: 48px; height: 48px; font-size: 20px; }
+      .nav-btn { width: 46px; height: 46px; font-size: 18px; }
       
       .leaflet-control-zoom {
         right: 16px !important;
-        bottom: 180px !important;
+        bottom: 170px !important;
       }
     }
 
     @media (max-width: 480px) {
-      :root { --w: 100vw; }
+      :root { --w: 240px; }
       
       #sidebar {
-        width: 100vw;
+        width: 240px;
       }
       
-      .nav-btn { width: 44px; height: 44px; font-size: 18px; }
+      .brand { font-size: 15px; }
+      #header { padding: 8px 12px; }
+      .toggle { width: 34px; height: 34px; font-size: 18px; }
+      
+      #searchWrap { padding: 6px 12px; }
+      #searchWrap input { font-size: 12px; padding: 8px 10px 8px 30px; }
+      
+      #listWrap { padding: 4px 8px 8px; }
+      .pt-item { padding: 7px 8px; }
+      .pt-name { font-size: 11px; }
+      
+      #addSection { padding: 8px 12px; }
+      #addToggle { font-size: 11px; padding: 7px; }
+      .f-input { font-size: 11px; padding: 7px 9px; }
+      
+      .nav-btn { width: 42px; height: 42px; font-size: 16px; }
       
       .leaflet-control-zoom {
-        bottom: 160px !important;
+        bottom: 150px !important;
       }
     }
   </style>
