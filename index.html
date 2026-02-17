@@ -113,6 +113,7 @@
     .pt-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pt-coord { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
+    /* ── ADD SECTION ── */
     #addSection {
       padding: 10px 12px 14px;
       border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -400,6 +401,7 @@
       <button class="nav-btn" id="nextBtn">→</button>
     </div>
 
+    
     <button id="qrBtn" onclick="openQR()">
       <span style="font-size:18px;">▦</span>
       <span>QR</span>
@@ -407,13 +409,14 @@
   </div>
 </div>
 
+
 <div id="qrModal" onclick="closeQR()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(0px); transition: background 0.3s ease, backdrop-filter 0.3s ease;">
-  <div id="qrBox" onclick="event.stopPropagation()" style="background:#11141c; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:28px 32px; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 20px 60px rgba(0,0,0,0.6); transform:scale(0.6); opacity:0; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;">
-    <div style="font-family:'Unbounded',sans-serif; font-size:23px; color:#4f8ef7; letter-spacing:1px;">СКАНИРУЙ</div>
+  <div id="qrBox" onclick="event.stopPropagation()" style="background:#11141c; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:28px 32px; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 20px 60px rgba(0,0,0,0.6); transform:scale(0.6); opacity:0; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease; max-width:90vw; max-height:90vh;">
+    <div style="font-family:'Unbounded',sans-serif; font-size:13px; color:#4f8ef7; letter-spacing:1px;">СКАНИРУЙ</div>
     <div style="background:white; border-radius:12px; padding:12px;">
-      <img src="https://i.ibb.co.com/1thvQR9Y/clck.png" alt="QR ZkoMap" style="width:600px; height:600px; display:block; border-radius:4px;"/>
+      <img src="https://i.ibb.co.com/1thvQR9Y/clck.png" alt="QR ZkoMap" style="width:min(600px, 70vw); height:min(600px, 70vw); display:block; border-radius:4px;"/>
     </div>
-    <div style="font-family:'Unbounded',sans-serif; font-size:36px; color:#e8eaf0; letter-spacing:1px; margin-top:14px;">zkomap.dpdns.org</div>
+    <div style="font-family:'Unbounded',sans-serif; font-size:clamp(18px, 4vw, 28px); color:#e8eaf0; letter-spacing:1px; margin-top:14px; word-break:break-all; text-align:center;">zkomap.dpdns.org</div>
     <button onclick="closeQR()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#6b7280; border-radius:8px; padding:6px 20px; font-size:12px; cursor:pointer; font-family:inherit;">Закрыть</button>
   </div>
 </div>
@@ -469,7 +472,8 @@
     document.getElementById('btnSat').classList.add('active');
     document.getElementById('btnOsm').classList.remove('active');
   };
-
+  
+  const sidebar = document.getElementById('sidebar');
   const tog = document.getElementById('sideToggle');
   tog.onclick = () => {
     const collapsed = sidebar.classList.toggle('collapsed');
@@ -478,7 +482,6 @@
     setTimeout(() => map.invalidateSize(), 320);
   };
 
- 
   try {
     const ch = sb.channel('presence-kazmap-public', {
       config: { presence: { key: Math.random().toString(36).slice(2) } }
@@ -525,9 +528,9 @@
       .replace(/\([^)]*население[^)]*\)/gi, '')
       .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
       .replace(/  +/g, ' ').trim();
-    
+
     const sentences = cl.match(/[^.!?]+[.!?]+/g) || [cl];
-    
+
     const uniqueSentences = [];
     const seen = new Set();
     for (const s of sentences) {
@@ -538,7 +541,7 @@
         uniqueSentences.push(trimmed);
       }
     }
-    
+
     let desc = '';
     let sentCount = 0;
     const maxLength = 400;
