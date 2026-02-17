@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://zkomap.dpdns.org/sitemap.xml
