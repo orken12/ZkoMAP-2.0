@@ -28,12 +28,10 @@
     html, body { height: 100%; overflow: hidden; background: var(--bg); }
     body { font-family: 'Golos Text', system-ui, sans-serif; color: var(--text); }
 
-    /* ── LAYOUT ── */
     #app { display: flex; height: 100vh; }
     #mapWrap { flex: 1; position: relative; }
     #map { position: absolute; inset: 0; }
 
-    /* ── SIDEBAR ── */
     #sidebar {
       width: var(--w); height: 100%; flex-shrink: 0;
       background: var(--panel);
@@ -46,7 +44,6 @@
     }
     #sidebar.collapsed { margin-left: calc(-1 * var(--w)); }
 
-    /* ── HEADER ── */
     #sHead {
       padding: 18px 16px 12px;
       border-bottom: 1px solid var(--border);
@@ -71,7 +68,6 @@
       100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
     }
 
-    /* ── STATS ── */
     #statsRow {
       display: flex; gap: 6px; padding: 10px 12px;
       border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -83,7 +79,6 @@
     .stat-val { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; color: var(--accent); }
     .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: .4px; }
 
-    /* ── SEARCH ── */
     #searchWrap { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     #searchPoints {
       width: 100%; background: var(--item); border: 1px solid var(--border);
@@ -96,7 +91,6 @@
     #searchPoints:focus { border-color: var(--accent); }
     #searchPoints::placeholder { color: var(--muted); }
 
-    /* ── LIST ── */
     #listWrap { flex: 1; overflow-y: auto; padding: 6px 8px; }
     #listWrap::-webkit-scrollbar { width: 3px; }
     #listWrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
@@ -119,7 +113,6 @@
     .pt-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pt-coord { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    /* ── ADD SECTION ── */
     #addSection {
       padding: 10px 12px 14px;
       border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -171,7 +164,6 @@
     }
     .btn-add:hover { opacity: .85; }
 
-    /* ── SIDEBAR TOGGLE ── */
     #sideToggle {
       position: fixed; top: 50%; left: var(--w);
       transform: translateY(-50%);
@@ -185,7 +177,6 @@
     }
     #sideToggle:hover { color: var(--text); background: rgba(79,142,247,.15); }
 
-    /* ── MAP CONTROLS ── */
     #layerToggle {
       position: absolute; top: 14px; right: 14px; z-index: 1000;
       background: var(--panel); backdrop-filter: blur(14px);
@@ -216,7 +207,19 @@
     .nav-btn:hover { background: rgba(79,142,247,.2); border-color: rgba(79,142,247,.4); }
     .nav-btn:active { transform: scale(.92); }
 
-    /* ── LEAFLET overrides ── */
+    #qrBtn {
+      position: absolute; bottom: 160px; right: 16px; z-index: 1000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      width: 44px; height: 50px; border-radius: 12px;
+      background: linear-gradient(135deg, #4f8ef7, #a855f7);
+      border: none; color: #fff; cursor: pointer;
+      font-family: 'Unbounded', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+      box-shadow: 0 4px 16px rgba(79,142,247,0.45);
+      transition: transform .15s, box-shadow .15s;
+    }
+    #qrBtn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(79,142,247,0.55); }
+    #qrBtn:active { transform: scale(.93); }
+
     .leaflet-control-zoom { right: 14px !important; bottom: 80px !important; }
     .leaflet-control-zoom a {
       background: var(--panel) !important; color: var(--text) !important;
@@ -237,7 +240,6 @@
     .leaflet-popup-content b { font-family: 'Unbounded', sans-serif; font-size: 13px; color: var(--accent); }
     .leaflet-popup-content small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
-    /* ── LOADING ── */
     #loading {
       position: fixed; inset: 0; z-index: 9999;
       background: var(--bg);
@@ -251,7 +253,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin-lbl { font-family: 'Unbounded', sans-serif; font-size: 11px; color: var(--muted); letter-spacing: .6px; }
 
-    /* ── MOBILE RESPONSIVE ── */
     @media (max-width: 768px) {
       :root { --w: 260px; }
       
@@ -398,8 +399,47 @@
       <button class="nav-btn" id="prevBtn">←</button>
       <button class="nav-btn" id="nextBtn">→</button>
     </div>
+
+    <button id="qrBtn" onclick="openQR()">
+      <span style="font-size:18px;">▦</span>
+      <span>QR</span>
+    </button>
   </div>
 </div>
+
+<div id="qrModal" onclick="closeQR()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(0px); transition: background 0.3s ease, backdrop-filter 0.3s ease;">
+  <div id="qrBox" onclick="event.stopPropagation()" style="background:#11141c; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:28px 32px; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 20px 60px rgba(0,0,0,0.6); transform:scale(0.6); opacity:0; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;">
+    <div style="font-family:'Unbounded',sans-serif; font-size:13px; color:#4f8ef7; letter-spacing:1px;">СКАНИРУЙ</div>
+    <div style="background:white; border-radius:12px; padding:12px;">
+      <img src="https://i.ibb.co.com/1thvQR9Y/clck.png" alt="QR ZkoMap" style="width:600px; height:600px; display:block; border-radius:4px;"/>
+    </div>
+    <div style="font-family:'Unbounded',sans-serif; font-size:28px; color:#e8eaf0; letter-spacing:1px; margin-top:14px;">zkomap.dpdns.org</div>
+    <button onclick="closeQR()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#6b7280; border-radius:8px; padding:6px 20px; font-size:12px; cursor:pointer; font-family:inherit;">Закрыть</button>
+  </div>
+</div>
+
+<script>
+  function openQR() {
+    const modal = document.getElementById('qrModal');
+    const box = document.getElementById('qrBox');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      modal.style.background = 'rgba(0,0,0,0.75)';
+      modal.style.backdropFilter = 'blur(8px)';
+      box.style.transform = 'scale(1)';
+      box.style.opacity = '1';
+    });
+  }
+  function closeQR() {
+    const modal = document.getElementById('qrModal');
+    const box = document.getElementById('qrBox');
+    modal.style.background = 'rgba(0,0,0,0)';
+    modal.style.backdropFilter = 'blur(0px)';
+    box.style.transform = 'scale(0.6)';
+    box.style.opacity = '0';
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+  }
+</script>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
@@ -409,7 +449,6 @@
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbmlhYnR4Y2hndGJjZmxkd2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTI1NTIsImV4cCI6MjA4NjQ4ODU1Mn0.fWuFphXouWK35E_qNe6AbokMT-pXeSHodoga1UwYP6c'
   );
 
-  // ── MAP ────────────────────────────────────────────────────────────────────
   const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { noWrap: true });
   const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { noWrap: true });
   const map = L.map('map', {
@@ -431,8 +470,6 @@
     document.getElementById('btnOsm').classList.remove('active');
   };
 
-  // ── SIDEBAR TOGGLE ─────────────────────────────────────────────────────────
-  const sidebar = document.getElementById('sidebar');
   const tog = document.getElementById('sideToggle');
   tog.onclick = () => {
     const collapsed = sidebar.classList.toggle('collapsed');
@@ -441,7 +478,7 @@
     setTimeout(() => map.invalidateSize(), 320);
   };
 
-  // ── ONLINE PRESENCE ────────────────────────────────────────────────────────
+ 
   try {
     const ch = sb.channel('presence-kazmap-public', {
       config: { presence: { key: Math.random().toString(36).slice(2) } }
@@ -453,12 +490,10 @@
     }).subscribe(async s => { if (s === 'SUBSCRIBED') await ch.track({ t: Date.now() }); });
   } catch(e) { document.getElementById('onlineTxt').textContent = '—'; }
 
-  // ── STATE ──────────────────────────────────────────────────────────────────
   let points = [], selectMode = false, currentIndex = 0;
   const listDiv    = document.getElementById('pointsList');
   const searchInput = document.getElementById('searchPoints');
 
-  // ── WIKI HELPERS ──────────────────────────────────────────────────────────
   async function fetchWiki(name) {
     const searches = [name+' село Казахстан', name+' город Казахстан', name+' Казахстан', name];
     for (const q of searches) {
@@ -480,7 +515,6 @@
   }
 
   function cleanWiki(text) {
-    // Чистим текст от технических данных
     let cl = text.split('\n').join(' ').replace(/[ \t]+/g,' ').trim();
     cl = cl
       .replace(/[,.]?\s*Код КАТО[^.]*\.?/gi, '')
@@ -492,10 +526,8 @@
       .replace(/\([^)]*год[аеу][^)]*\)/gi, '')
       .replace(/  +/g, ' ').trim();
     
-    // Разбиваем на предложения
     const sentences = cl.match(/[^.!?]+[.!?]+/g) || [cl];
     
-    // УБИРАЕМ ДУБЛИКАТЫ и короткие предложения
     const uniqueSentences = [];
     const seen = new Set();
     for (const s of sentences) {
@@ -507,7 +539,6 @@
       }
     }
     
-    // УМНОЕ СЖАТИЕ: берём 2-4 разнообразных предложения
     let desc = '';
     let sentCount = 0;
     const maxLength = 400;
@@ -545,7 +576,6 @@
     return desc || cl.slice(0, 300);
   }
 
-  // ── MARKERS ───────────────────────────────────────────────────────────────
   function addMarker(p, i) {
     const marker = L.marker([p.lat, p.lng]).addTo(map);
     const title = p.name || `Точка ${i+1}`;
@@ -554,7 +584,6 @@
     p.marker = marker;
   }
 
-  // ── LOAD ──────────────────────────────────────────────────────────────────
   async function loadPoints() {
     try {
       const { data, error } = await sb.from('markers').select('*');
@@ -576,7 +605,6 @@
     }
   }
 
-  // ── LIST ──────────────────────────────────────────────────────────────────
   function refreshList(filter = '') {
     listDiv.innerHTML = '';
     const lf = filter.toLowerCase();
@@ -598,7 +626,6 @@
       });
   }
 
-  // ── NAVIGATION ────────────────────────────────────────────────────────────
   function flyToPoint(index) {
     if (!points.length) return;
     if (index < 0) index = points.length - 1;
@@ -614,7 +641,6 @@
   document.getElementById('nextBtn').onclick = () => flyToPoint(currentIndex + 1);
   searchInput.oninput = e => refreshList(e.target.value.trim());
 
-  // ── ADD FORM ──────────────────────────────────────────────────────────────
   document.getElementById('addToggle').onclick = () => {
     const f = document.getElementById('addForm');
     f.classList.toggle('open');
@@ -652,7 +678,6 @@
     map.getContainer().style.cursor = '';
   });
 
-  // Wiki autofill for new point form
   document.getElementById('autoWikiBtn').onclick = async () => {
     const name = document.getElementById('pointName').value.trim();
     if (!name) return alert('Сначала введи название');
@@ -668,22 +693,5 @@
 
   loadPoints();
 </script>
-  <footer style="
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(13,15,20,0.9);
-  color: #6b7280;
-  font-size: 11px;
-  text-align: center;
-  padding: 6px 0;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-">
-  © ZkoMap 2026 |
-  Данные карты © <a href="https://www.openstreetmap.org/copyright" target="_blank" style="color:#4f8ef7;text-decoration:none;">
-  OpenStreetMap contributors</a>
-</footer>
 </body>
 </html>
